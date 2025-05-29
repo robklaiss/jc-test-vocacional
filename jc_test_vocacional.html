@@ -54,6 +54,25 @@
             margin-top: 20px;
             font-weight: bold;
             font-size: 18px;
+            text-align: center;
+        }
+        #restart-btn {
+            display: block;
+            margin: 40px auto 0;
+            padding: 12px 24px;
+            background-color: white;
+            color: #001EB4;
+            border: 1.5px solid #CCCCCC;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        #restart-btn:hover {
+            background-color: #009340;
+            color: white;
+            border-color: #009340;
         }
     </style>
 </head>
@@ -313,7 +332,13 @@
             let sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
             let [topRoute, topScore] = sorted[0];
             let secondary = sorted.length > 1 && sorted[1][1] >= topScore - 1 ? ` También podrías explorar: ${sorted[1][0]}.` : "";
-            resultBox.textContent = `Tu ruta ideal es: ${topRoute}.${secondary}`;
+            resultBox.innerHTML = `
+                <div>Tu ruta ideal es: ${topRoute}.${secondary}</div>
+                <button id="restart-btn">Volver a tomar el test</button>
+            `;
+
+            // Add click handler for the restart button
+            document.getElementById('restart-btn').addEventListener('click', restartTest);
 
             // Disable option buttons after showing the result
             const optionButtons = document.querySelectorAll('.option-btn');
@@ -321,6 +346,23 @@
                 button.disabled = true;
                 button.classList.add('disabled'); // Add a class for styling
             });
+        }
+
+        function restartTest() {
+            // Reset test state
+            current = 0;
+            for (let key in scores) {
+                delete scores[key];
+            }
+            
+            // Reset UI
+            resultBox.textContent = '';
+            resultBox.style = '';
+            chatBox.style.display = '';
+            progressBar.style.width = '0%';
+            
+            // Show first question
+            showQuestion();
         }
 
         function updateProgressBar() {
