@@ -7,14 +7,14 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-image: url('/jc-fondo.jpg');
-            background-repeat: repeat;
-            background-position: center;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            background: url('jc-fondo.jpg') no-repeat center center fixed;
+            background-size: cover;
             min-height: 100vh;
             margin: 0;
+            padding: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
         }
         #chat-container {
             width: 100%;
@@ -40,7 +40,7 @@
         }
         .option-btn {
             padding: 10px 15px;
-            background-color: #1976d2;
+            background-color: #001EB4;
             color: white;
             border: none;
             border-radius: 5px;
@@ -48,7 +48,7 @@
             text-align: left;
         }
         .option-btn:hover {
-            background-color: #135ba1;
+            background-color: #00188f;
         }
         #result {
             margin-top: 20px;
@@ -108,7 +108,7 @@
     <style>
         #progress-bar-container {
             width: 100%;
-            background-color: #ddd;
+            background-color: #f0f0f0; /* Lighter background for better contrast */
             margin-bottom: 20px;
             border-radius: 5px;
             overflow: hidden; /* Hide the rounded corners on the progress bar */
@@ -116,7 +116,7 @@
 
         #progress-bar {
             height: 10px;
-            background-color: #aaa;
+            background-color: #009340; /* Updated to the requested green color */
             width: 0; /* Initial width is 0 */
             border-radius: 5px;
             transition: width 0.3s ease; /* Smooth transition for the width */
@@ -276,8 +276,8 @@
 
             const optionsDiv = document.createElement('div');
             optionsDiv.className = 'options';
-
-            q.options.forEach(option => {
+            
+            q.options.forEach((option, index) => {
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
                 btn.textContent = option.text;
@@ -286,7 +286,7 @@
                         scores[route] = (scores[route] || 0) + 1;
                     });
                     current++;
-                    updateProgressBar(); // Update the progress bar
+                    updateProgressBar();
                     if (current < questions.length) {
                         showQuestion();
                     } else {
@@ -294,26 +294,22 @@
                     }
                 };
                 optionsDiv.appendChild(btn);
-
-                // Add event listener
-                /* btn.addEventListener('click', () => {
-                    option.routes.forEach(route => {
-                        scores[route] = (scores[route] || 0) + 1;
-                    });
-                    current++;
-                    updateProgressBar(); // Update the progress bar
-                    if (current < questions.length) {
-                        showQuestion();
-                    } else {
-                        showResult();
-                    }
-                }); */
             });
 
             chatBox.appendChild(optionsDiv);
         }
 
         function showResult() {
+            // Hide the chat box
+            chatBox.style.display = 'none';
+            
+            // Style the result container
+            resultBox.style.fontSize = '30px';
+            resultBox.style.textAlign = 'center';
+            resultBox.style.padding = '20px';
+            resultBox.style.color = '#00005A';
+            
+            // Calculate and show the result
             let sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
             let [topRoute, topScore] = sorted[0];
             let secondary = sorted.length > 1 && sorted[1][1] >= topScore - 1 ? ` También podrías explorar: ${sorted[1][0]}.` : "";
