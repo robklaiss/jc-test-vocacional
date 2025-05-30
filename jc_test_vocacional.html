@@ -894,8 +894,13 @@
             
             // Function to create Coursera search URL
             const createCourseraUrl = (query) => {
-                const encodedQuery = encodeURIComponent(query);
-                return `https://www.coursera.org/search?query=${encodedQuery}`;
+                const baseUrl = 'https://www.coursera.org/search';
+                const params = new URLSearchParams({
+                    query: query,
+                    language: 'Spanish',
+                    sortBy: 'BEST_MATCH'
+                });
+                return `${baseUrl}?${params.toString()}`;
             };
             
             // Hide chat box and show saved result

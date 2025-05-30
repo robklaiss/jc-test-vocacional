@@ -167,10 +167,12 @@
             
             // Find most common route
             const routeCounts = {};
-            testHistory.forEach(test => {
-                const mainRoute = test.result.split(':')[1]?.split('.')[0]?.trim() || 'Desconocido';
+            for (const test of testHistory) {
+                const mainPart = test.result.split(':')[1] || test.result; // Fallback to full result if no colon
+                const mainRoute = (mainPart.includes('.') ? mainPart.split('.')[0] : mainPart).trim();
+                if (!mainRoute) continue; // Skip if we end up with an empty route
                 routeCounts[mainRoute] = (routeCounts[mainRoute] || 0) + 1;
-            });
+            }
             
             const mostCommonRoute = Object.entries(routeCounts)
                 .sort((a, b) => b[1] - a[1])[0];
@@ -196,10 +198,12 @@
 
             // Prepare data for chart
             const routesData = {};
-            testHistory.forEach(test => {
-                const route = test.result.split(':')[1]?.split('.')[0]?.trim() || 'Desconocido';
+            for (const test of testHistory) {
+                const mainPart = test.result.split(':')[1] || test.result; // Fallback to full result if no colon
+                const route = (mainPart.includes('.') ? mainPart.split('.')[0] : mainPart).trim();
+                if (!route) continue; // Skip if we end up with an empty route
                 routesData[route] = (routesData[route] || 0) + 1;
-            });
+            }
 
             // Create chart
             const ctx = document.getElementById('routesChart').getContext('2d');
