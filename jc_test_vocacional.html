@@ -4,34 +4,178 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test de Orientación Vocacional</title>
+    <link rel="icon" type="image/png" href="jovenes-conectados-favicon.png">
     <style>
         body {
             font-family: Arial, sans-serif;
+            margin: 25px 0 0 0;
+            padding: 0;
             background: url('jc-fondo.avif') no-repeat center top / cover;
-            margin: 0;
-            padding: 15px 0;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
+            overflow-y: auto;
         }
+        
         #chat-container {
-            width: 80%;
-            max-width: 600px;
+            width: 85%;
+            max-width: 100%;
+            margin: 20px auto 0;
+            padding: 20px 0 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* Fix for flex children */
             background: white;
-            padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            height: auto !important;
+        }
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .loader-logo {
+            width: 150px;
+            height: auto;
+            margin-bottom: 20px;
+        }
+        .loader-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #001EB4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        #chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            margin-bottom: 0;
+            background: white;
+            min-height: 0; /* Fix for flex children */
+        }
+        /* Chat header styles */
+        #chat-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 20px;
+            margin-bottom: 0px;
+            padding: 15px 0;
+            width: 100%;
+            border-bottom: none;
+        }
+        #chat-header img {
+            height: 40px;
+            width: auto;
             margin: 0 auto;
         }
-        .message {
-            margin-bottom: 15px;
-        }
-        .bot {
+        #chat-header span {
+            font-weight: bold;
             color: #00005A;
-            font-size: 22px;
-            font-weight: 700;
-            line-height: 1.4;
+        }
+
+        /* Desktop styles */
+        @media (min-width: 768px) {
+            #chat-header {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 0 15px 0;
+            }
+            #chat-header img {
+                margin: 0;
+                align-self: center;
+            }
+            #chat-container {
+                width: 100%;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                height: auto;
+            }
+        }
+
+        #start-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 10px 20px 40px;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+        #start-screen h1 {
+            color: #00005A;
+            font-size: 2em;
+            margin: 0 0 10px 0; /* Reset top margin */
+        }
+        #start-screen p {
+            color: #333;
+            line-height: 1.3;
+            margin: 0 0 30px 0; /* Reset top margin */
+        }
+        button {
+            background-color: #001EB4;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #00188f;
+        }
+        .hidden {
+            display: none !important;
+        }
+        #progress-bar-container {
+            width: 100%;
+            background-color: #f0f0f0;
             margin-bottom: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        #progress-bar {
+            height: 10px;
+            background-color: #009340;
+            width: 0;
+            border-radius: 5px;
+            transition: width 0.3s ease;
         }
         .options {
             display: flex;
@@ -57,11 +201,19 @@
         .option-btn:hover {
             background-color: #00188f;
         }
+        
+        .message.bot {
+            margin-bottom: 20px;
+        }
         #result {
-            margin-top: 20px;
+            margin: 20px 0 0 0;
             font-weight: bold;
-            font-size: 18px;
             text-align: center;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            display: none;
+            flex: 0 0 auto;
         }
         #restart-btn {
             display: block;
@@ -87,150 +239,28 @@
                 padding: 15px;
             }
         }
-        /* Add loader styles */
-        #loader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            transition: opacity 0.5s ease-out;
-        }
-
-        .loader-logo {
-            width: 180px;
-            margin-bottom: 35px;
-        }
-
-        .loader-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #001EB4;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        .loader-text {
-            color: #00005A;
-            font-size: 18px;
-            font-weight: 500;
-            margin-top: 15px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .fade-out {
-            opacity: 0;
-            pointer-events: none;
-        }
         
-        /* Start Screen Styles */
-        #chat-header {
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0px;
-            padding-bottom: 20px;
-        }
-
-        #chat-header img {
-            vertical-align: middle;
-            width: 180px;
-        }
-
-        #chat-header span {
-            font-size: 24px;
-            vertical-align: middle;
-            color: #00005A;
-        }
-
-        @media (max-width: 600px) {
-            #chat-header {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            #chat-header img {
-                margin-bottom: 10px;
+        /* Animation for reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            .loader-spinner {
+                animation: none;
+                border: 4px solid #001EB4;
             }
         }
-        
-        #start-screen {
-            text-align: center;
-            padding: 20px 0;
-        }
-        
-        #start-screen img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-            margin-bottom: 0;
-        }
-        
-        #start-screen h1 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-            font-size: 2rem;
-            line-height: 1;
-            font-weight: 700;
-        }
-        
-        #start-screen p {
-            color: #333;
-            font-size: 20px;
-            line-height: 1.2;
-            margin: 0 25px 30px;
-        }
-        
-        #start-button {
-            background-color: #001EB4;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin: 0 auto;
-            display: block;
-            width: fit-content;
-        }
-        
-        #start-button:hover {
-            background-color: #00188f;
-        }
-        
-        .hidden {
-            display: none !important;
-        }
-        
-        @media (max-width: 600px) {
-            #chat-header img {
-                max-width: 200px;
-                height: auto;
-            }
-        }
-    </style>
+        </style>
 </head>
 <body>
-    <!-- Updated loader with logo and text -->
-    <div id="loader">
-        <img src="jovenes-conectados-logo.png" alt="Jóvenes Conectados" class="loader-logo">
-        <div class="loader-spinner"></div>
-        <div class="loader-text">Cargando test vocacional</div>
+    <!-- Optimized loader with logo -->
+    <div id="loader" role="status" aria-live="polite">
+        <img src="jovenes-conectados-logo.png" 
+             alt="Jóvenes Conectados" 
+             class="loader-logo" 
+             width="200" 
+             height="200" 
+             loading="eager" 
+             decoding="async">
+        <div class="loader-spinner" aria-hidden="true"></div>
+        <span class="sr-only">Cargando aplicación...</span>
     </div>
 
     <div id="chat-container">
@@ -240,13 +270,13 @@
         </div>
 
         <div id="start-screen">
-            <img src="imagen-alumna.avif" alt="Estudiante" style="width: 220px;">
+            <img src="imagen-alumna.avif" alt="Estudiante" style="max-width: 180px; margin-bottom: 20px;">
             <h1>Impulsá tu talento,<br>construí tu futuro</h1>
-            <p>Descubrí en qué sos bueno y qué te apasiona. Completá este test vocacional gratuito y recibí una recomendación de cursos de Coursera pensados especialmente para vos. ¡Es el primer paso para elegir mejor tu camino!</p>
+            <p>Descubrí en qué sos bueno y qué te apasiona. Completá este test vocacional gratuito y recibí una recomendación de cursos de Coursera pensados especialmente para vos.</p>
             <button id="start-button">¡Empezar!</button>
         </div>
         
-        <div id="test-content" class="hidden">
+        <div id="test-content" style="display: none;">
             <div id="progress-bar-container">
                 <div id="progress-bar"></div>
             </div>
@@ -262,38 +292,217 @@
     <style>
         #progress-bar-container {
             width: 100%;
-            background-color: #f0f0f0; /* Lighter background for better contrast */
+            background-color: #f0f0f0;
             margin-bottom: 20px;
             border-radius: 5px;
-            overflow: hidden; /* Hide the rounded corners on the progress bar */
+            overflow: hidden;
         }
 
         #progress-bar {
             height: 10px;
-            background-color: #009340; /* Updated to the requested green color */
-            width: 0; /* Initial width is 0 */
+            background-color: #009340;
+            width: 0;
             border-radius: 5px;
-            transition: width 0.3s ease; /* Smooth transition for the width */
+            transition: width 0.3s ease;
         }
     </style>
 
     <script>
-        // Using localStorage instead of cookies for better reliability
-        function saveResult(result) {
+        // Hide loader function
+        function hideLoader() {
             try {
-                localStorage.setItem('testResult', result);
+                const loader = document.getElementById('loader');
+                if (loader) {
+                    loader.style.display = 'none';
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.error('Error hiding loader:', e);
+                return false;
+            }
+        }
+        
+        // Save test state function
+        function saveTestState() {
+            try {
+                const state = {
+                    current: current,
+                    scores: scores,
+                    answerPattern: answerPattern,
+                    timestamp: new Date().getTime()
+                };
+                localStorage.setItem('testState', JSON.stringify(state));
                 return true;
             } catch (e) {
-                console.error('Error saving to localStorage:', e);
+                console.error('Error saving test state:', e);
                 return false;
             }
         }
 
+        function getTestState() {
+            try {
+                const state = JSON.parse(localStorage.getItem('testState'));
+                if (state) {
+                    current = state.current || 0;
+                    scores = state.scores || {};
+                    // Initialize answerPattern from state or create new array
+                    if (state.answerPattern && Array.isArray(state.answerPattern)) {
+                        answerPattern.splice(0, answerPattern.length, ...state.answerPattern);
+                    } else if (state.answerPattern && typeof state.answerPattern === 'string') {
+                        // Handle case where answerPattern was saved as a string
+                        const patternArray = state.answerPattern.split('');
+                        answerPattern.splice(0, answerPattern.length, ...patternArray);
+                    }
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.error('Error reading test state:', e);
+                return false;
+            }
+        }
+
+        function clearTestState() {
+            try {
+                localStorage.removeItem('testState');
+                return true;
+            } catch (e) {
+                console.error('Error clearing test state:', e);
+                return false;
+            }
+        }
+
+        // Initialize variables at the top
+        let questions = [];
+        let current = 0;
+        const scores = {};
+        let isSaving = false;
+        const SAVE_RETRY_LIMIT = 3;
+        const STORAGE_KEYS = {
+            TEST_RESULT: 'testResult',
+            TEST_HISTORY: 'testHistory',
+            TEST_STATE: 'testState'
+        };
+        // Initialize answer pattern after questions are loaded
+        let answerPattern = [];
+        
+        // Debounce localStorage operations
+        const debounce = (func, wait) => {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        };
+
+        // Queue for handling concurrent saves
+        const saveQueue = [];
+        let isProcessingQueue = false;
+
+        const processQueue = async () => {
+            if (isProcessingQueue || saveQueue.length === 0) return;
+            isProcessingQueue = true;
+            
+            while (saveQueue.length > 0) {
+                const { action, resolve, reject } = saveQueue.shift();
+                try {
+                    const result = await action();
+                    resolve(result);
+                } catch (error) {
+                    reject(error);
+                }
+            }
+            
+            isProcessingQueue = false;
+        };
+
+        const queueSaveOperation = (action) => {
+            return new Promise((resolve, reject) => {
+                saveQueue.push({ action, resolve, reject });
+                processQueue();
+            });
+        };
+
+        async function saveWithRetry(action, retries = SAVE_RETRY_LIMIT) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    return await action();
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    // Exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, i)));
+                }
+            }
+        }
+
+        async function saveResult(result) {
+            if (isSaving) {
+                return queueSaveOperation(() => saveResult(result));
+            }
+            
+            isSaving = true;
+            
+            try {
+                await saveWithRetry(async () => {
+                    const saveData = {
+                        date: new Date().toISOString(),
+                        result: result,
+                        topRoutes: getTopRoutes(3),
+                        answerPattern: answerPattern.join('')
+                    };
+
+                    // Save both the full result data and the result text
+                    localStorage.setItem(STORAGE_KEYS.TEST_RESULT, JSON.stringify(saveData));
+                    
+                    // Also save to history
+                    const testHistory = JSON.parse(localStorage.getItem(STORAGE_KEYS.TEST_HISTORY) || '[]');
+                    testHistory.push(saveData);
+                    // Keep only the last 100 results to prevent storage bloat
+                    const trimmedHistory = testHistory.slice(-100);
+                    localStorage.setItem(STORAGE_KEYS.TEST_HISTORY, JSON.stringify(trimmedHistory));
+
+                    // Clear the test state when we have a final result
+                    await clearTestState();
+                    return true;
+                });
+            } catch (error) {
+                console.error('Error saving result:', error);
+                // Consider showing a user-friendly error message
+                return false;
+            } finally {
+                isSaving = false;
+            }
+        }
+        
+        function getTopRoutes(count) {
+            const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+            return sorted.slice(0, count).map(([route, score]) => ({
+                route,
+                score,
+                percentage: Math.round((score / current) * 100)
+            }));
+        }
+
         function getSavedResult() {
             try {
-                return localStorage.getItem('testResult');
+                const savedData = localStorage.getItem(STORAGE_KEYS.TEST_RESULT);
+                if (!savedData) return null;
+                
+                // Try to parse as JSON first (new format)
+                try {
+                    const parsed = JSON.parse(savedData);
+                    // Return both the result text and the parsed data
+                    return {
+                        result: parsed.result || savedData,
+                        topRoutes: parsed.topRoutes || []
+                    };
+                } catch (e) {
+                    // If not valid JSON, return as is (old format)
+                    return { result: savedData, topRoutes: [] };
+                }
             } catch (e) {
-                console.error('Error reading from localStorage:', e);
+                console.error('Error reading result:', e);
                 return null;
             }
         }
@@ -301,14 +510,16 @@
         function clearSavedResult() {
             try {
                 localStorage.removeItem('testResult');
+                clearTestState();
                 return true;
             } catch (e) {
-                console.error('Error clearing localStorage:', e);
+                console.error('Error clearing result:', e);
                 return false;
             }
         }
 
-        const questions = [
+        // Initialize questions array
+        questions = [
             {
                 q: "1. ¿Qué actividad te resulta más atractiva?",
                 options: [
@@ -419,84 +630,180 @@
             }
         ];
 
-        let current = 0;
-        const scores = {};
+        // Initialize answer pattern after questions are loaded
+        answerPattern = Array(questions.length).fill('');
+        
+        // Load saved test state if exists
+        const savedState = getTestState();
+        if (savedState) {
+            current = savedState.current;
+            Object.assign(scores, savedState.scores);
+        }
+        
+        // Initialize UI elements
         const chatBox = document.getElementById('chat-box');
         const resultBox = document.getElementById('result');
         const progressBar = document.getElementById('progress-bar');
-
+        
+        // Debounced version of showQuestion to prevent rapid firing
+        const debouncedShowQuestion = debounce(showQuestion, 50);
+        
+        // Fragment for batch DOM updates
+        const fragment = document.createDocumentFragment();
+        
         function showQuestion() {
-            chatBox.innerHTML = "";
-            const q = questions[current];
-            const div = document.createElement('div');
-            div.className = 'message bot';
-            div.textContent = q.q;
-            chatBox.appendChild(div);
-
-            const optionsDiv = document.createElement('div');
-            optionsDiv.className = 'options';
-            
-            q.options.forEach((option, index) => {
-                const btn = document.createElement('button');
-                btn.className = 'option-btn';
-                btn.textContent = option.text;
-                btn.onclick = () => {
-                    option.routes.forEach(route => {
-                        scores[route] = (scores[route] || 0) + 1;
-                    });
-                    current++;
-                    updateProgressBar();
-                    if (current < questions.length) {
-                        showQuestion();
-                    } else {
-                        showResult();
+            // Use requestAnimationFrame for smoother animations
+            requestAnimationFrame(() => {
+                console.log('showQuestion called, current question:', current);
+                if (!chatBox) {
+                    console.error('Chat box element not found');
+                    return;
+                }
+                
+                try {
+                    // Clear chat box efficiently
+                    while (chatBox.firstChild) {
+                        chatBox.removeChild(chatBox.firstChild);
                     }
-                };
-                optionsDiv.appendChild(btn);
+                    
+                    // Get current question
+                    const q = questions[current];
+                    console.log('Current question object:', q);
+                    
+                    if (!q) {
+                        throw new Error(`No se encontró la pregunta ${current + 1}`);
+                    }
+                    
+                    // Create and append question element
+                    const div = document.createElement('div');
+                    div.className = 'message bot';
+                    div.textContent = q.q;
+                    
+                    // Create options container
+                    const optionsDiv = document.createElement('div');
+                    optionsDiv.className = 'options';
+                    
+                    // Check if options exist and is an array
+                    if (!q.options || !Array.isArray(q.options)) {
+                        throw new Error('Las opciones de la pregunta no son válidas');
+                    }
+                    
+                    // Create option buttons using DocumentFragment for better performance
+                    const optionsFragment = document.createDocumentFragment();
+                    
+                    q.options.forEach((option, index) => {
+                        if (!option || !option.text || !option.routes) {
+                            console.error('Invalid option format at index', index, ':', option);
+                            return;
+                        }
+                        
+                        const btn = document.createElement('button');
+                        btn.className = 'option-btn';
+                        btn.textContent = option.text;
+                        
+                        // Use event delegation for better performance
+                        btn.onclick = (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            // Disable all buttons to prevent multiple clicks
+                            const buttons = optionsDiv.querySelectorAll('.option-btn');
+                            buttons.forEach(b => {
+                                b.disabled = true;
+                                b.classList.add('disabled');
+                            });
+                            
+                            // Record the answer (A, B, C, or D)
+                            const answerLetter = String.fromCharCode(65 + index);
+                            // Ensure answerPattern is properly updated
+                            const updatedPattern = [...answerPattern];
+                            updatedPattern[current] = answerLetter;
+                            answerPattern.splice(0, answerPattern.length, ...updatedPattern);
+                            
+                            // Process routes
+                            option.routes.forEach(route => {
+                                scores[route] = (scores[route] || 0) + 1;
+                            });
+                            
+                            current++;
+                            updateProgressBar();
+                            
+                            // Save state and show next question with a small delay for better UX
+                            setTimeout(async () => {
+                                try {
+                                    // Save both test state and current progress
+                                    await saveTestState();
+                                    if (current < questions.length) {
+                                        debouncedShowQuestion();
+                                    } else {
+                                        // When test is complete, save the final result
+                                        const result = getTopRoutes(1)[0]?.route || 'No result';
+                                        await saveResult(result);
+                                        showResult();
+                                    }
+                                } catch (error) {
+                                    console.error('Error saving state:', error);
+                                    // Fallback to direct show
+                                    if (current < questions.length) {
+                                        showQuestion();
+                                    } else {
+                                        showResult();
+                                    }
+                                }
+                            }, 100);
+                        };
+                        
+                        optionsFragment.appendChild(btn);
+                    });
+                    
+                    // Batch DOM updates
+                    optionsDiv.appendChild(optionsFragment);
+                    fragment.appendChild(div);
+                    fragment.appendChild(optionsDiv);
+                    chatBox.appendChild(fragment);
+                    
+                    // Scroll to show the new content
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    
+                } catch (error) {
+                    console.error('Error showing question:', error);
+                    if (chatBox) {
+                        chatBox.innerHTML = `
+                            <div class="message bot">
+                                <p>Lo siento, hubo un error al cargar la pregunta.</p>
+                                <p>Por favor, intenta recargar la página.</p>
+                                <p>Si el problema persiste, por favor contacta al soporte.</p>
+                                <p>Error: ${error.message}</p>
+                            </div>`;
+                    }
+                }
             });
-
-            chatBox.appendChild(optionsDiv);
         }
 
         function showResult() {
             // Hide the chat box
             chatBox.style.display = 'none';
             
-            // Style the result container
-            resultBox.style.fontSize = '30px';
-            resultBox.style.textAlign = 'center';
-            resultBox.style.padding = '20px';
-            resultBox.style.color = '#00005A';
-            
-            // Calculate and show the result
+            // Calculate the result
             let sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
             let [topRoute, topScore] = sorted[0];
-            let secondary = sorted.length > 1 && sorted[1][1] >= topScore - 1 ? ` También podrías explorar: ${sorted[1][0]}.` : "";
-            let resultText = `Tu ruta ideal es: ${topRoute}.${secondary}`;
+            let secondary = sorted.length > 1 && sorted[1][1] >= topScore - 1 
+                ? `También podrías explorar: ${sorted[1][0]}.` 
+                : "";
+            let resultText = secondary 
+                ? `Tu ruta ideal es: ${topRoute}.<div style="margin-top: 10px;">${secondary}</div>`
+                : `Tu ruta ideal es: ${topRoute}.`;
             
-            // Save result to localStorage
+            // Save and display the result
             saveResult(resultText);
-            
-            // Display result with restart button
-            resultBox.innerHTML = `
-                <div>${resultText}</div>
-                <button id="restart-btn">Volver a tomar el test</button>
-            `;
-
-            // Add click handler for the restart button
-            document.getElementById('restart-btn').addEventListener('click', restartTest);
-
-            // Disable option buttons after showing the result
-            const optionButtons = document.querySelectorAll('.option-btn');
-            optionButtons.forEach(button => {
-                button.disabled = true;
-                button.classList.add('disabled');
-            });
+            showSavedResult(resultText);
         }
 
         function restartTest() {
-            // Clear the saved test result
+            console.log('Restarting test...');
+            // Clear all saved data
             clearSavedResult();
+            clearTestState();
             
             // Reset test state
             current = 0;
@@ -505,13 +812,53 @@
             }
             
             // Reset UI
-            resultBox.textContent = '';
-            resultBox.style = '';
-            chatBox.style.display = '';
-            progressBar.style.width = '0%';
+            if (resultBox) {
+                resultBox.textContent = '';
+                resultBox.style.display = 'none';
+            }
             
-            // Show first question
-            showQuestion();
+            // Clear chat box
+            if (chatBox) {
+                chatBox.innerHTML = '';
+                chatBox.style.display = 'block';
+            }
+            
+            // Reset progress
+            if (progressBar) {
+                progressBar.style.width = '0%';
+            }
+            
+            // Show start screen and hide test content
+            const startScreen = document.getElementById('start-screen');
+            const testContent = document.getElementById('test-content');
+            if (startScreen && testContent) {
+                // Reset any inline styles that might interfere
+                startScreen.style.display = 'flex';
+                startScreen.style.flexDirection = 'column';
+                startScreen.style.alignItems = 'center';
+                startScreen.style.justifyContent = 'flex-start';
+                startScreen.style.textAlign = 'center';
+                startScreen.style.padding = '40px 20px';
+                startScreen.style.maxWidth = '600px';
+                startScreen.style.margin = '0 auto';
+                startScreen.style.minHeight = 'auto';
+                startScreen.style.boxSizing = 'border-box';
+                startScreen.style.flex = '1';
+                
+                testContent.style.display = 'none';
+                
+                // Force a reflow to ensure styles are applied
+                void startScreen.offsetHeight;
+            }
+            
+            // Reset any form elements if they exist
+            const optionsContainer = document.querySelector('.options');
+            if (optionsContainer) {
+                optionsContainer.innerHTML = '';
+            }
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
         }
 
         function updateProgressBar() {
@@ -519,64 +866,252 @@
             progressBar.style.width = `${progress}%`;
         }
 
-        // Check for existing test result on page load
-        window.onload = function() {
-            const savedResult = getSavedResult();
-            if (savedResult) {
-                // Hide chat box and show saved result
-                chatBox.style.display = 'none';
+        function showSavedResult(savedResult) {
+            console.log('Showing saved result:', savedResult);
+            // Hide start screen and show test content
+            const startScreen = document.getElementById('start-screen');
+            const testContent = document.getElementById('test-content');
+            if (startScreen && testContent) {
+                startScreen.style.display = 'none';
+                testContent.style.display = 'block';
+            }
+            
+            // Extract result text and top routes from saved result
+            let resultText, topRoutes;
+            
+            if (typeof savedResult === 'string') {
+                // Handle case where savedResult is just a string (old format)
+                resultText = savedResult;
+                // Try to get top routes from scores if available
+                topRoutes = Object.entries(scores).sort((a, b) => b[1] - a[1])
+                    .slice(0, 2)
+                    .map(([route]) => ({ route }));
+            } else {
+                // Handle case where savedResult is an object with result and topRoutes
+                resultText = savedResult.result || '';
+                topRoutes = savedResult.topRoutes || [];
+            }
+            
+            // Function to create Coursera search URL
+            const createCourseraUrl = (query) => {
+                const encodedQuery = encodeURIComponent(query);
+                return `https://www.coursera.org/search?query=${encodedQuery}`;
+            };
+            
+            // Hide chat box and show saved result
+            if (chatBox) chatBox.style.display = 'none';
+            if (resultBox) {
+                resultBox.style.display = 'block';
                 resultBox.style.fontSize = '30px';
                 resultBox.style.textAlign = 'center';
                 resultBox.style.padding = '20px';
                 resultBox.style.color = '#00005A';
-                resultBox.innerHTML = `
-                    <div>${savedResult}</div>
-                    <button id="restart-btn">Volver a tomar el test</button>
+                
+                // Create result content
+                let resultHTML = `
+                    <div style="margin-bottom: 30px; font-size: 24px; line-height: 1.2;">${resultText}</div>
+                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto 30px;">
                 `;
-                document.getElementById('restart-btn').addEventListener('click', restartTest);
-            } else {
-                // No saved result, start the test
-                showQuestion();
-            }
-        };
-
-        // Initialize the start screen
-        document.addEventListener('DOMContentLoaded', function() {
-            // Hide loader when everything is loaded
-            setTimeout(function() {
-                const loader = document.getElementById('loader');
-                if (loader) {
-                    loader.classList.add('fade-out');
-                    // Remove loader from DOM after animation completes
-                    setTimeout(() => {
-                        loader.style.display = 'none';
-                    }, 500);
+                
+                // Add buttons for top results
+                topRoutes.slice(0, 2).forEach(({ route }) => {
+                    const courseraUrl = createCourseraUrl(route);
+                    resultHTML += `
+                        <a href="${courseraUrl}" target="_blank" rel="noopener noreferrer" 
+                           style="display: block; padding: 12px 20px; background-color: #0056D2; 
+                                  color: white; text-decoration: none; border-radius: 5px;
+                                  font-size: 16px; transition: background-color 0.3s;">
+                            Ver cursos de ${route} en Coursera
+                        </a>
+                    `;
+                });
+                
+                resultHTML += `
+                    </div>
+                    <button id="restart-btn" style="margin-top: 20px; padding: 10px 20px; 
+                            font-size: 16px; cursor: pointer; background-color: #009340; 
+                            color: white; border: none; border-radius: 5px;">
+                        Volver a tomar el test
+                    </button>
+                `;
+                
+                resultBox.innerHTML = resultHTML;
+                
+                // Re-attach event listener to the restart button
+                const restartBtn = document.getElementById('restart-btn');
+                if (restartBtn) {
+                    restartBtn.addEventListener('click', restartTest);
                 }
-            }, 1000);
+            }
+        }
+
+        // Check for existing test result on page load
+        window.onload = function() {
+            // First, ensure the loader is hidden
+            hideLoader();
             
-            // Add start button event listener
+            // Check for saved result first
+            try {
+                const savedResult = getSavedResult();
+                console.log('Found saved result on load:', savedResult);
+                if (savedResult) {
+                    // If we have a saved result, show it immediately
+                    // Use setTimeout to ensure DOM is fully loaded
+                    setTimeout(() => showSavedResult(savedResult), 0);
+                    return;
+                }
+            } catch (e) {
+                console.error('Error checking for saved result:', e);
+            }
+            
+            // Then check for saved state
+            const savedState = getTestState();
+            if (savedState) {
+                // If there's a saved state but no final result, restore the test state
+                current = savedState.current || 0;
+                Object.assign(scores, savedState.scores || {});
+                
+                // Show the test content and load the saved question
+                const startScreen = document.getElementById('start-screen');
+                const testContent = document.getElementById('test-content');
+                if (startScreen && testContent) {
+                    startScreen.style.display = 'none';
+                    testContent.style.display = 'block';
+                    // Only show question if not already at the end
+                    if (current < questions.length) {
+                        showQuestion();
+                    } else {
+                        showResult();
+                    }
+                }
+            }
+            
+            // Fallback: Hide loader after a short delay
+            setTimeout(hideLoader, 500);
+        }
+        
+        function hideLoader() {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                // Add fade-out class
+                loader.classList.add('fade-out');
+                
+                // Remove from DOM after animation completes
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 500);
+            }
+        }
+        
+        // Add fade-out animation for loader
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; visibility: hidden; }
+            }
+            .fade-out {
+                animation: fadeOut 0.5s ease-out forwards;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // First hide the loader
+            hideLoader();
+            // Then initialize the app
+            initApp();
+            
+            // Show saved result if exists
+            const savedResult = getSavedResult();
+            if (savedResult) {
+                showSavedResult(savedResult);
+            }
+            
+            // Hide loader after a delay to ensure everything is loaded
+            // Increased delay to keep loader visible longer
+            setTimeout(hideLoader, 2500); // 2.5 seconds
+        });
+        
+        // Fallback: Hide loader after 3 seconds if still visible
+        setTimeout(hideLoader, 3000);
+
+        function initApp() {
+            console.log('Initializing app...');
+            
+            // Set up start button
             const startButton = document.getElementById('start-button');
             if (startButton) {
+                console.log('Start button found');
                 startButton.addEventListener('click', function() {
+                    console.log('Start button clicked');
                     const startScreen = document.getElementById('start-screen');
                     const testContent = document.getElementById('test-content');
                     
                     if (startScreen && testContent) {
-                        startScreen.classList.add('hidden');
-                        testContent.classList.remove('hidden');
-                        // Show first question after a short delay
-                        setTimeout(showQuestion, 300);
+                        console.log('Hiding start screen, showing test content');
+                        startScreen.style.display = 'none';
+                        testContent.style.display = 'block';
+                        // Initialize the test
+                        showQuestion();
+                    } else {
+                        console.error('Could not find required elements:', {startScreen, testContent});
                     }
                 });
+            } else {
+                console.error('Start button not found');
             }
-        });
-    </script>
-    <style>
-        .option-btn.disabled {
-            background-color: #999; /* Grey out the button */
-            cursor: not-allowed; /* Change the cursor to indicate it's disabled */
-            opacity: 0.7; /* Reduce opacity for visual indication */
+            
+            // Show saved result if exists
+            try {
+                const savedResult = getSavedResult();
+                if (savedResult) {
+                    showSavedResult(savedResult);
+                }
+            } catch (e) {
+                console.error('Error loading saved result:', e);
+            }
+            
+            // Hide loader when everything is ready
+            hideLoader();
         }
-    </style>
+    </script>
+    
+    <!-- Initialize the loader when the page loads -->
+    <script>
+        // Hide loader when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', hideLoader);
+        } else {
+            // DOM already loaded
+            hideLoader();
+        }
+        
+        // Fallback: Hide loader after 2 seconds
+        setTimeout(hideLoader, 2000);
+    </script>
+    
+    <a href="dashboard.html" class="admin-link">Admin</a>
+    
+    <!-- Simple loader hide script -->
+    <script>
+        // Function to hide loader
+        function hideLoader() {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.display = 'none';
+            }
+        }
+        
+        // Hide loader when everything is loaded
+        if (document.readyState === 'complete') {
+            hideLoader();
+        } else {
+            window.addEventListener('load', hideLoader);
+            // Fallback: hide after 2 seconds
+            setTimeout(hideLoader, 2000);
+        }
+    </script>
 </body>
 </html>
