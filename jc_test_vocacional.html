@@ -34,6 +34,64 @@
             position: relative !important;
             height: auto !important;
         }
+        
+        #result {
+            position: relative;
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        #chat-container {
+            position: relative;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            left: calc(100% + 25px);
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            background: #2c3e50;
+            border: 2px solid white;
+            z-index: 1000;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            padding: 0;
+            margin: 0;
+            line-height: 1;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .close-btn:hover {
+            background-color: #e74c3c;
+            transform: scale(1.1);
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            #chat-container {
+                padding: 20px 15px 15px !important;
+                width: calc(100% - 30px);
+                margin: 20px 15px 0;
+            }
+            
+            .close-btn {
+                left: auto;
+                right: 15px;
+                top: 15px;
+                background: rgba(44, 62, 80, 0.9);
+            }
+        }
         #loader {
             position: fixed;
             top: 0;
@@ -266,7 +324,7 @@
     <div id="chat-container">
         <div id="chat-header">
             <img src="jovenes-conectados-logo.png" alt="Logo Jóvenes Conectados">
-            <span>Test vocacional</span>
+            <span>Asistente de selección de ruta</span>
         </div>
 
         <div id="start-screen">
@@ -281,8 +339,11 @@
                 <div id="progress-bar"></div>
             </div>
             <div id="chat-box"></div>
-            <div id="result"></div>
+            <div id="result" class="message bot" style="display: none; position: relative;">
+                <!-- Result content will be inserted here -->
+            </div>
         </div>
+        <button id="result-close-btn" class="close-btn" onclick="window.location.href='https://vinculo.com.py/jovenes-conectados'" style="display: none;">&times;</button>
     </div>
 
     <div style="margin: 30px 0 0; text-align: center; width: 100%; max-width: 600px;">
@@ -636,6 +697,7 @@
         // Load saved test state if exists
         const savedState = getTestState();
         if (savedState) {
+            // If there's a saved state but no final result, restore the test state
             current = savedState.current;
             Object.assign(scores, savedState.scores);
         }
@@ -781,18 +843,27 @@
         }
 
         function showResult() {
-            // Hide the chat box
+            // Hide the chat box and show close button
             chatBox.style.display = 'none';
+            const closeBtn = document.getElementById('result-close-btn');
+            if (closeBtn) closeBtn.style.display = 'block';
             
             // Calculate the result
             let sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
             let [topRoute, topScore] = sorted[0];
             let secondary = sorted.length > 1 && sorted[1][1] >= topScore - 1 
-                ? `También podrías explorar: ${sorted[1][0]}.` 
+                ? `
+                    <div style="margin-top: 20px;">
+                        <div style="font-weight: normal;">También podrías explorar:</div>
+                        <div style="font-weight: normal; margin-bottom: 10px;">${sorted[1][0]}</div>
+                    </div>` 
                 : "";
-            let resultText = secondary 
-                ? `Tu ruta ideal es: ${topRoute}.<div style="margin-top: 10px;">${secondary}</div>`
-                : `Tu ruta ideal es: ${topRoute}.`;
+            
+            let resultText = `
+                <div style="font-weight: normal;">Tu ruta ideal es:</div>
+                <div style="font-weight: bold; margin-bottom: 10px;">${topRoute}</div>
+                ${secondary}
+            `;
             
             // Save and display the result
             saveResult(resultText);
@@ -807,21 +878,16 @@
             
             // Reset test state
             current = 0;
-            for (let key in scores) {
-                delete scores[key];
-            }
+            Object.keys(scores).forEach(key => delete scores[key]);
             
-            // Reset UI
-            if (resultBox) {
-                resultBox.textContent = '';
-                resultBox.style.display = 'none';
-            }
+            // Clear chat box and hide close button
+            chatBox.innerHTML = '';
+            const closeBtn = document.getElementById('result-close-btn');
+            if (closeBtn) closeBtn.style.display = 'none';
             
-            // Clear chat box
-            if (chatBox) {
-                chatBox.innerHTML = '';
-                chatBox.style.display = 'block';
-            }
+            // Show the chat box and hide result
+            chatBox.style.display = 'block';
+            resultBox.style.display = 'none';
             
             // Reset progress
             if (progressBar) {
@@ -903,39 +969,50 @@
                 return `${baseUrl}?${params.toString()}`;
             };
             
-            // Hide chat box and show saved result
+            // Hide chat box and show saved result with close button
             if (chatBox) chatBox.style.display = 'none';
+            const closeBtn = document.getElementById('result-close-btn');
+            if (closeBtn) closeBtn.style.display = 'block';
+            
             if (resultBox) {
                 resultBox.style.display = 'block';
                 resultBox.style.fontSize = '30px';
                 resultBox.style.textAlign = 'center';
                 resultBox.style.padding = '20px';
                 resultBox.style.color = '#00005A';
+                resultBox.style.position = 'relative';
                 
-                // Create result content
+                // Create result content with proper font sizes and weights
                 let resultHTML = `
-                    <div style="margin-bottom: 30px; font-size: 24px; line-height: 1.2;">${resultText}</div>
+                    <div style="margin-bottom: 30px; font-size: 16px; line-height: 1.5;">
+                        <div style="font-size: 24px; font-weight: normal;">
+                            ${resultText}
+                        </div>
+                    </div>
                     <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto 30px;">
                 `;
                 
-                // Add buttons for top results
-                topRoutes.slice(0, 2).forEach(({ route }) => {
-                    const courseraUrl = createCourseraUrl(route);
-                    resultHTML += `
-                        <a href="${courseraUrl}" target="_blank" rel="noopener noreferrer" 
-                           style="display: block; padding: 12px 20px; background-color: #0056D2; 
-                                  color: white; text-decoration: none; border-radius: 5px;
-                                  font-size: 16px; transition: background-color 0.3s;">
-                            Ver cursos de ${route} en Coursera
-                        </a>
-                    `;
-                });
+                // Add buttons with custom text and links
+                resultHTML += `
+                    <a href="https://www.coursera.org/" target="_blank" rel="noopener noreferrer" 
+                       style="display: block; padding: 12px 20px; background-color: #0056D2; 
+                              color: white; text-decoration: none; border-radius: 5px;
+                              font-size: 16px; font-weight: normal; transition: background-color 0.3s; margin-bottom: 10px;">
+                        Si ya sos parte del programa y tenés tu licencia activa, ingresá a Coursera acá
+                    </a>
+                    <a href="https://vinculo.com.py/jovenes-conectados/#rutas-de-aprendizaje" target="_blank" rel="noopener noreferrer" 
+                       style="display: block; padding: 12px 20px; background-color: #0056D2; 
+                              color: white; text-decoration: none; border-radius: 5px;
+                              font-size: 16px; font-weight: normal; transition: background-color 0.3s;">
+                        Explorá las rutas de aprendizaje y los cursos incluidos en cada ruta antes de empezar
+                    </a>
+                `;
                 
                 resultHTML += `
                     </div>
                     <button id="restart-btn" style="margin-top: 20px; padding: 10px 20px; 
-                            font-size: 16px; cursor: pointer; background-color: #009340; 
-                            color: white; border: none; border-radius: 5px;">
+                            font-size: 16px; cursor: pointer; background-color: #808080; 
+                            color: white; border: none; border-radius: 5px; transition: background-color 0.3s;">
                         Volver a tomar el test
                     </button>
                 `;
@@ -1097,7 +1174,7 @@
         setTimeout(hideLoader, 2000);
     </script>
     
-    <a href="dashboard.html" class="admin-link">Admin</a>
+
     
     <!-- Simple loader hide script -->
     <script>
