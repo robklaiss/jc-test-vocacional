@@ -331,7 +331,7 @@
             <img src="imagen-alumna.avif" alt="Estudiante" style="max-width: 180px; margin-bottom: 20px;">
             <h1>Impulsá tu talento,<br>construí tu futuro</h1>
             <p>Descubrí en qué sos bueno y qué te apasiona. Completá este test vocacional gratuito y recibí una recomendación de cursos de Coursera pensados especialmente para vos.</p>
-            <button id="start-button">¡Empezar!</button>
+            <a id="start-button" href="#" onclick="event.preventDefault(); startTest(); return false;" style="display: inline-block; padding: 15px 30px; font-size: 18px; cursor: pointer; text-align: center; text-decoration: none; outline: none; color: #fff; background-color: #0056D2; border: none; border-radius: 5px;">¡Empezar!</a>
         </div>
         
         <div id="test-content" style="display: none;">
@@ -347,7 +347,7 @@
     </div>
 
     <div style="margin: 30px 0 0; text-align: center; width: 100%; max-width: 600px;">
-        <img src="auspiciantes.avif" alt="Auspiciantes" style="max-width: calc(100% - 50px); height: auto; display: block; margin: 0 25px;">
+        <img src="auspiciantes.avif" alt="Auspiciantes" style="max-width: calc(100% - 50px); height: auto; display: block; margin: 0 25px 30px;">
     </div>
 
     <style>
@@ -369,216 +369,301 @@
     </style>
 
     <script>
-        // Hide loader function
-        function hideLoader() {
-            try {
-                const loader = document.getElementById('loader');
-                if (loader) {
-                    loader.style.display = 'none';
-                    return true;
-                }
-                return false;
-            } catch (e) {
-                console.error('Error hiding loader:', e);
-                return false;
-            }
-        }
+        // Global initialization flag to prevent multiple initializations
+        let isInitializing = false;
         
-        // Save test state function
-        function saveTestState() {
-            try {
-                const state = {
-                    current: current,
-                    scores: scores,
-                    answerPattern: answerPattern,
-                    timestamp: new Date().getTime()
-                };
-                localStorage.setItem('testState', JSON.stringify(state));
-                return true;
-            } catch (e) {
-                console.error('Error saving test state:', e);
-                return false;
-            }
-        }
-
-        function getTestState() {
-            try {
-                const state = JSON.parse(localStorage.getItem('testState'));
-                if (state) {
-                    current = state.current || 0;
-                    scores = state.scores || {};
-                    // Initialize answerPattern from state or create new array
-                    if (state.answerPattern && Array.isArray(state.answerPattern)) {
-                        answerPattern.splice(0, answerPattern.length, ...state.answerPattern);
-                    } else if (state.answerPattern && typeof state.answerPattern === 'string') {
-                        // Handle case where answerPattern was saved as a string
-                        const patternArray = state.answerPattern.split('');
-                        answerPattern.splice(0, answerPattern.length, ...patternArray);
-                    }
-                    return true;
-                }
-                return false;
-            } catch (e) {
-                console.error('Error reading test state:', e);
-                return false;
-            }
-        }
-
-        function clearTestState() {
-            try {
-                localStorage.removeItem('testState');
-                return true;
-            } catch (e) {
-                console.error('Error clearing test state:', e);
-                return false;
-            }
-        }
-
-        // Initialize variables at the top
-        let questions = [];
+        // Global test state variables
         let current = 0;
-        const scores = {};
-        let isSaving = false;
-        const SAVE_RETRY_LIMIT = 3;
-        const STORAGE_KEYS = {
-            TEST_RESULT: 'testResult',
-            TEST_HISTORY: 'testHistory',
-            TEST_STATE: 'testState'
-        };
-        // Initialize answer pattern after questions are loaded
+        let scores = {};
         let answerPattern = [];
         
-        // Debounce localStorage operations
-        const debounce = (func, wait) => {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), wait);
-            };
+        // Storage keys for consistent access
+        const STORAGE_KEYS = {
+            TEST_STATE: 'testState',
+            TEST_RESULT: 'testResult',
+            SESSION_ID: 'test_session_id',
+            COOKIE_PREFIX: 'jc_test_' // Prefix for all our cookies
         };
-
-        // Queue for handling concurrent saves
-        const saveQueue = [];
-        let isProcessingQueue = false;
-
-        const processQueue = async () => {
-            if (isProcessingQueue || saveQueue.length === 0) return;
-            isProcessingQueue = true;
-            
-            while (saveQueue.length > 0) {
-                const { action, resolve, reject } = saveQueue.shift();
-                try {
-                    const result = await action();
-                    resolve(result);
-                } catch (error) {
-                    reject(error);
-                }
-            }
-            
-            isProcessingQueue = false;
-        };
-
-        const queueSaveOperation = (action) => {
-            return new Promise((resolve, reject) => {
-                saveQueue.push({ action, resolve, reject });
-                processQueue();
-            });
-        };
-
-        async function saveWithRetry(action, retries = SAVE_RETRY_LIMIT) {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    return await action();
-                } catch (error) {
-                    if (i === retries - 1) throw error;
-                    // Exponential backoff
-                    await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, i)));
-                }
-            }
-        }
-
-        async function saveResult(result) {
-            if (isSaving) {
-                return queueSaveOperation(() => saveResult(result));
-            }
-            
-            isSaving = true;
-            
+        
+        /**
+         * Check if there are saved results for the current user
+         * @returns {Promise<boolean>} - True if there are saved results
+         */
+        async function checkSavedResults() {
             try {
-                await saveWithRetry(async () => {
-                    const saveData = {
-                        date: new Date().toISOString(),
-                        result: result,
-                        topRoutes: getTopRoutes(3),
-                        answerPattern: answerPattern.join('')
-                    };
-
-                    // Save both the full result data and the result text
-                    localStorage.setItem(STORAGE_KEYS.TEST_RESULT, JSON.stringify(saveData));
-                    
-                    // Also save to history
-                    const testHistory = JSON.parse(localStorage.getItem(STORAGE_KEYS.TEST_HISTORY) || '[]');
-                    testHistory.push(saveData);
-                    // Keep only the last 100 results to prevent storage bloat
-                    const trimmedHistory = testHistory.slice(-100);
-                    localStorage.setItem(STORAGE_KEYS.TEST_HISTORY, JSON.stringify(trimmedHistory));
-
-                    // Clear the test state when we have a final result
-                    await clearTestState();
+                // First try localStorage
+                if (checkLocalStorage()) {
+                    const savedResult = localStorage.getItem(STORAGE_KEYS.TEST_RESULT);
+                    if (savedResult) {
+                        return true;
+                    }
+                }
+                
+                // Then try cookies
+                const cookieResult = getCookie('TEST_RESULT');
+                if (cookieResult) {
                     return true;
-                });
-            } catch (error) {
-                console.error('Error saving result:', error);
-                // Consider showing a user-friendly error message
+                }
+                
                 return false;
-            } finally {
-                isSaving = false;
+            } catch (e) {
+                console.error('Error checking saved results:', e);
+                return false;
             }
         }
         
-        function getTopRoutes(count) {
-            const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-            return sorted.slice(0, count).map(([route, score]) => ({
-                route,
-                score,
-                percentage: Math.round((score / current) * 100)
-            }));
-        }
-
-        function getSavedResult() {
-            try {
-                const savedData = localStorage.getItem(STORAGE_KEYS.TEST_RESULT);
-                if (!savedData) return null;
-                
-                // Try to parse as JSON first (new format)
-                try {
-                    const parsed = JSON.parse(savedData);
-                    // Return both the result text and the parsed data
-                    return {
-                        result: parsed.result || savedData,
-                        topRoutes: parsed.topRoutes || []
-                    };
-                } catch (e) {
-                    // If not valid JSON, return as is (old format)
-                    return { result: savedData, topRoutes: [] };
-                }
-            } catch (e) {
-                console.error('Error reading result:', e);
-                return null;
+        // Loader utility functions
+        
+        /**
+         * Hide the loader element
+         */
+        function hideLoader() {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.display = 'none';
             }
         }
-
-        function clearSavedResult() {
+        
+        // Storage utility functions
+        
+        /**
+         * Check if localStorage is available and working
+         * @returns {boolean} - True if localStorage is available and working
+         */
+        function checkLocalStorage() {
             try {
-                localStorage.removeItem('testResult');
-                clearTestState();
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
                 return true;
             } catch (e) {
-                console.error('Error clearing result:', e);
+                console.warn('localStorage not available:', e);
                 return false;
             }
         }
-
+        
+        // Cookie utility functions
+        function setCookie(name, value, days) {
+            let expires = '';
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = '; expires=' + date.toUTCString();
+            }
+            document.cookie = STORAGE_KEYS.COOKIE_PREFIX + name + '=' + encodeURIComponent(JSON.stringify(value)) + expires + '; path=/';
+        }
+        
+        function getCookie(name) {
+            const nameEQ = STORAGE_KEYS.COOKIE_PREFIX + name + '=';
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i].trim();
+                if (c.indexOf(nameEQ) === 0) {
+                    try {
+                        return JSON.parse(decodeURIComponent(c.substring(nameEQ.length, c.length)));
+                    } catch (e) {
+                        console.error('Error parsing cookie:', e);
+                        return null;
+                    }
+                }
+            }
+            return null;
+        }
+        
+        function deleteCookie(name) {
+            setCookie(name, '', -1); // Set expiration to past date to delete
+        }
+        
+        // Global error handler for unhandled Promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled Promise rejection:', event.reason);
+        });
+        
+        // Clear localStorage and sessionStorage if we detect a reload loop
+        const now = Date.now();
+        const lastInit = localStorage.getItem('lastInitTime');
+        if (lastInit && (now - parseInt(lastInit) < 2000)) {
+            console.warn('Detected rapid reloads, clearing all storage...');
+            localStorage.clear();
+            sessionStorage.clear();
+            // Add cache-busting parameter
+            if (!window.location.search.includes('nocache')) {
+                window.location.replace(window.location.pathname + '?nocache=' + Math.random());
+            }
+        }
+        
+        // Function to ensure the start screen is shown
+        function ensureStartScreenShown() {
+            console.log('ℹ️ No saved state or results found, showing start screen');
+            // If no saved state or result, ensure start screen is shown
+            const startScreen = document.getElementById('start-screen');
+            if (startScreen) {
+                startScreen.style.display = 'flex';
+                startScreen.style.opacity = '1';
+                startScreen.style.visibility = 'visible';
+            }
+            
+            // Reinitialize the start button
+            setupStartButton();
+            
+            return false;
+        }
+        
+        // Function to update the progress bar
+        function updateProgressBar() {
+            const progress = (current / questions.length) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+        
+        // Function to start the test
+        async function startTest(isRestoring = false) {
+            console.log('Starting test...', isRestoring ? '(restoring from saved state)' : '');
+            
+            try {
+                // Hide start screen
+                const startScreen = document.getElementById('start-screen');
+                const testContent = document.getElementById('test-content');
+                
+                if (startScreen) startScreen.style.display = 'none';
+                if (testContent) testContent.style.display = 'block';
+                
+                // Only reset test state if NOT restoring from saved state
+                if (!isRestoring) {
+                    console.log('Initializing new test state');
+                    current = 0;
+                    scores = {};
+                    answerPattern = Array(questions.length).fill('');
+                    
+                    // Show first question
+                    await showQuestion();
+                } else {
+                    console.log('Using restored test state, current question:', current);
+                    // For restored state, show the current question
+                    await showQuestion(true);
+                }
+                
+                console.log('Test started successfully');
+            } catch (error) {
+                console.error('Error starting test:', error);
+                alert('Hubo un error al iniciar el test. Por favor, intenta de nuevo.');
+            }
+        }
+        
+        // Function to set up the start button
+        function setupStartButton() {
+            console.log('Setting up start button...');
+            
+            try {
+                const startButton = document.getElementById('start-button');
+                
+                if (!startButton) {
+                    console.error('Start button not found!');
+                    return false;
+                }
+                
+                console.log('Start button found, setting up click handler');
+                
+                // Remove any existing event listeners to avoid duplicates
+                const newButton = startButton.cloneNode(true);
+                startButton.parentNode.replaceChild(newButton, startButton);
+                
+                // Add the click event listener
+                newButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    startTest();
+                    return false;
+                });
+                
+                console.log('Start button setup complete');
+                return true;
+            } catch (error) {
+                console.error('Error setting up start button:', error);
+                return false;
+            }
+        }
+        
+        // Function to initialize the application
+        async function initApp() {
+            // Prevent multiple initializations
+            if (isInitializing) {
+                console.warn('Initialization already in progress, skipping...');
+                return;
+            }
+            
+            isInitializing = true;
+            console.log('Initializing app...');
+            
+            // Log current time for debugging
+            const currentTime = new Date().toISOString();
+            console.log('Current time:', currentTime);
+            
+            // Check if localStorage is available
+            const isLocalStorageAvailable = checkLocalStorage();
+            console.log('localStorage available:', isLocalStorageAvailable);
+            
+            // Detect and prevent reload loops
+            if (isLocalStorageAvailable) {
+                // Get the last initialization time
+                const lastInitTime = localStorage.getItem('lastInitTime');
+                const now = Date.now();
+                localStorage.setItem('lastInitTime', now);
+                
+                // Get reload counter
+                let reloadCounter = parseInt(localStorage.getItem('reloadCounter') || '0');
+                reloadCounter++;
+                localStorage.setItem('reloadCounter', reloadCounter);
+                
+                // If we've initialized more than 10 times in the last second, we're in a reload loop
+                // This is a much more conservative check to prevent false positives during normal question progression
+                if (lastInitTime && (now - parseInt(lastInitTime) < 1000) && reloadCounter > 10) {
+                    console.warn('Detected reload loop! Clearing localStorage and breaking the loop');
+                    localStorage.clear();
+                    // Add a random parameter to the URL to break cache
+                    const cleanUrl = window.location.href.split('?')[0];
+                    window.location.replace(cleanUrl + '?nocache=' + Math.random());
+                    return; // Stop execution
+                }
+                
+                // Reset counter after 5 seconds
+                setTimeout(() => {
+                    localStorage.setItem('reloadCounter', '0');
+                }, 5000);
+            }
+            
+            // Check for saved results and restore state if needed
+            // This will handle all state restoration logic
+            try {
+                console.log('Checking for saved results and test state...');
+                
+                // First check for saved results (completed tests)
+                const savedResultsFound = await checkSavedResults();
+                if (savedResultsFound) {
+                    console.log('Found saved results, showing results screen');
+                    // The results will be shown by checkSavedResults
+                } else {
+                    console.log('No saved results found, checking for in-progress test...');
+                    
+                    // Check for in-progress test state
+                    const stateRestored = await getTestState();
+                    if (stateRestored) {
+                        console.log('Found saved test state, resuming test');
+                        startTest(true); // Restore with saved state
+                    } else {
+                        console.log('No state to restore, setting up start button');
+                        setupStartButton();
+                    }
+                }
+            } catch (e) {
+                console.error('Error in state restoration:', e);
+                // Make sure start button is properly set up
+                setupStartButton();
+            } finally {
+                // Always hide the loader when done
+                hideLoader();
+                // Mark initialization as complete
+                isInitializing = false;
+            }
+        }
+        
         // Initialize questions array
         questions = [
             {
@@ -622,7 +707,7 @@
                 options: [
                     { text: "Tengo buena imaginación y muchas ideas", routes: ["Creatividad e innovación"] },
                     { text: "Soy práctico y resuelvo problemas técnicos", routes: ["Programación", "Análisis de datos"] },
-                    { text: "Me gusta atender y entender a las personas", routes: ["Ventas", "Servicio al cliente"] },
+                    { text: "Me gusta atender y entender a las personas", routes: ["Servicio al cliente", "Ventas"] },
                     { text: "Soy ordenado/a y me fijo en los detalles", routes: ["Contabilidad", "Proyectos"] }
                 ]
             },
@@ -630,7 +715,7 @@
                 q: "6. ¿Qué tipo de contenido te interesa ver o crear?",
                 options: [
                     { text: "Videos, memes, campañas", routes: ["Diseño de contenido", "Marketing"] },
-                    { text: "Juegos, apps, herramientas", routes: ["Diseño de videojuegos", "Desarrollo de software"] },
+                    { text: "Juegos, apps, herramientas", routes: ["Desarrollo de software", "Videojuegos"] },
                     { text: "Planes de negocios o estrategias", routes: ["Emprendimiento", "Transformación digital"] },
                     { text: "Cursos, hojas de cálculo, documentos", routes: ["Competencias digitales", "Ofimática"] }
                 ]
@@ -665,10 +750,10 @@
             {
                 q: "10. ¿Qué frase te representa mejor?",
                 options: [
-                    { text: "Me gusta pensar en el futuro y cómo innovar", routes: ["Creatividad", "IA"] },
-                    { text: "Prefiero entender cómo funcionan las cosas", routes: ["Programación", "Análisis de datos"] },
-                    { text: "Me interesa cómo la tecnología cambia el trabajo", routes: ["Transformación digital"] },
-                    { text: "Disfruto ayudar a otras personas con sus necesidades", routes: ["Servicio al cliente", "Ventas"] }
+                    { text: "Tengo buena imaginación y muchas ideas", routes: ["Creatividad", "IA"] },
+                    { text: "Soy práctico y resuelvo problemas técnicos", routes: ["Programación", "Análisis de datos"] },
+                    { text: "Me gusta atender y entender a las personas", routes: ["Servicio al cliente", "Ventas"] },
+                    { text: "Soy ordenado/a y me fijo en los detalles", routes: ["Contabilidad", "Proyectos"] }
                 ]
             },
             {
@@ -694,38 +779,183 @@
         // Initialize answer pattern after questions are loaded
         answerPattern = Array(questions.length).fill('');
         
-        // Load saved test state if exists
-        const savedState = getTestState();
-        if (savedState) {
-            // If there's a saved state but no final result, restore the test state
-            current = savedState.current;
-            Object.assign(scores, savedState.scores);
+        /**
+         * Save the current state of the test to localStorage and cookies
+         */
+        function saveTestState() {
+            try {
+                // Save current state
+                const state = {
+                    current: current,
+                    answerPattern: answerPattern,
+                    scores: scores,
+                    timestamp: Date.now()
+                };
+                
+                // Save to localStorage if available
+                if (checkLocalStorage()) {
+                    localStorage.setItem(STORAGE_KEYS.TEST_STATE, JSON.stringify(state));
+                }
+                
+                // Also save to cookies for persistent storage even if localStorage is cleared
+                setCookie('TEST_STATE', JSON.stringify(state), 7); // Store for 7 days
+                
+                console.log('Test state saved to localStorage and cookies:', state);
+                return true;
+            } catch (e) {
+                console.error('Error saving test state:', e);
+                return false;
+            }
         }
+        
+        /**
+         * Retrieve and restore the test state from localStorage or cookies
+         * @returns {boolean} - True if state was successfully restored, false otherwise
+         */
+        function getTestState() {
+            try {
+                let state = null;
+                let stateSource = '';
+                
+                // Try localStorage first
+                if (checkLocalStorage()) {
+                    const stateStr = localStorage.getItem(STORAGE_KEYS.TEST_STATE);
+                    if (stateStr) {
+                        state = JSON.parse(stateStr);
+                        stateSource = 'localStorage';
+                    }
+                }
+                
+                // If localStorage failed, try cookies
+                if (!state) {
+                    state = getCookie('TEST_STATE');
+                    stateSource = 'cookies';
+                }
+                
+                // No state found in either place
+                if (!state) {
+                    console.log('No saved test state found in localStorage or cookies');
+                    return false;
+                }
+                
+                // Validate state with more detailed logging
+                if (!state) {
+                    console.warn('Invalid saved state: state is null or undefined');
+                    return false;
+                }
+                
+                if (typeof state.current !== 'number') {
+                    console.warn('Invalid saved state: current is not a number:', state.current);
+                    return false;
+                }
+                
+                if (!Array.isArray(state.answerPattern)) {
+                    console.warn('Invalid saved state: answerPattern is not an array:', state.answerPattern);
+                    return false;
+                }
+                
+                // More lenient validation: ensure current is within a reasonable range (0 to questions.length)
+                if (state.current < 0 || state.current >= questions.length + 1) { // +1 to allow for final question
+                    console.warn('Invalid saved state: current index out of range:', state.current);
+                    return false;
+                }
+                
+                // Check if the saved state is more than 3 days old
+                const savedTime = new Date(state.timestamp);
+                const now = new Date();
+                const timeDiff = now - savedTime;
+                if (timeDiff > 3 * 24 * 60 * 60 * 1000) { // 3 days in milliseconds
+                    console.log('Saved state is too old, discarding');
+                    // Clean up expired state
+                    if (checkLocalStorage()) {
+                        localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+                    }
+                    deleteCookie('TEST_STATE');
+                    return false;
+                }
+                
+                // Restore state
+                current = state.current;
+                answerPattern = state.answerPattern;
+                scores = state.scores || {}; // Fallback for old saved states without scores
+                
+                console.log(`Test state restored from ${stateSource}:`, state);
+                return true;
+            } catch (e) {
+                console.error('Error restoring test state:', e);
+                return false;
+            }
+        }
+        
+        /**
+         * Save the test result to localStorage
+         * @param {string} result - The result to save
+         * @param {boolean} skipShowResult - Whether to skip showing the result after saving
+         */
+        async function saveResult(result, skipShowResult = false) {
+            try {
+                // Save the result to localStorage
+                localStorage.setItem(STORAGE_KEYS.TEST_RESULT, result);
+                console.log('Test result saved successfully');
+                
+                // Show the result in the UI only if not skipped
+                // This prevents infinite recursion with showResult
+                if (!skipShowResult) {
+                    showResult(true); // Pass true to indicate we're coming from saveResult
+                }
+                return true;
+            } catch (error) {
+                console.error('Error saving test result:', error);
+                return false;
+            }
+        }
+        
+        // We'll load the test state later in the initApp function
+        // after ensuring all questions are loaded
         
         // Initialize UI elements
         const chatBox = document.getElementById('chat-box');
         const resultBox = document.getElementById('result');
         const progressBar = document.getElementById('progress-bar');
         
-        // Debounced version of showQuestion to prevent rapid firing
-        const debouncedShowQuestion = debounce(showQuestion, 50);
+        // Define debounce function first so it can be used anywhere
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        };
         
-        // Fragment for batch DOM updates
-        const fragment = document.createDocumentFragment();
-        
-        function showQuestion() {
+        // Define showQuestion function before using it in debounce
+        async function showQuestion(isRestoring = false) {
             // Use requestAnimationFrame for smoother animations
             requestAnimationFrame(() => {
-                console.log('showQuestion called, current question:', current);
+                console.log('showQuestion with isRestoring:', isRestoring);
+                console.log('showQuestion called, current question:', current, isRestoring ? '(restoring state)' : '');
                 if (!chatBox) {
                     console.error('Chat box element not found');
                     return;
                 }
                 
                 try {
+                    // Create a new fragment for this question
+                    const fragment = document.createDocumentFragment();
+                    
                     // Clear chat box efficiently
                     while (chatBox.firstChild) {
                         chatBox.removeChild(chatBox.firstChild);
+                    }
+                    
+                    // Check if we've reached the end of the questions
+                    if (current >= questions.length) {
+                        console.log('Reached the end of questions, showing result');
+                        showResult();
+                        return;
                     }
                     
                     // Get current question
@@ -765,15 +995,18 @@
                         
                         // Use event delegation for better performance
                         btn.onclick = (e) => {
+                            console.log('Button clicked:', option.text);
                             e.preventDefault();
                             e.stopPropagation();
                             
                             // Disable all buttons to prevent multiple clicks
                             const buttons = optionsDiv.querySelectorAll('.option-btn');
+                            console.log('Disabling all buttons...');
                             buttons.forEach(b => {
                                 b.disabled = true;
                                 b.classList.add('disabled');
                             });
+                            console.log('All buttons disabled');
                             
                             // Record the answer (A, B, C, or D)
                             const answerLetter = String.fromCharCode(65 + index);
@@ -788,15 +1021,35 @@
                             });
                             
                             current++;
+                            console.log('Moving to next question, new current index:', current);
                             updateProgressBar();
                             
+                            // Save state immediately after answering
+                            try {
+                                console.log('About to save test state...');
+                                saveTestState();
+                                console.log('Test state saved successfully');
+                            } catch (err) {
+                                console.error('Error saving test state:', err);
+                            }
+                            
                             // Save state and show next question with a small delay for better UX
+                            console.log('Setting timeout for next question');
                             setTimeout(async () => {
+                                console.log('Timeout callback executing, current question:', current);
                                 try {
-                                    // Save both test state and current progress
-                                    await saveTestState();
+                                    // If we've reached the end of the test, show results
+                                    if (current >= questions.length) {
+                                        await showResult();
+                                        return;
+                                    }
+                                    
                                     if (current < questions.length) {
-                                        debouncedShowQuestion();
+                                        // Always show the next question when needed
+                                        console.log('About to call debouncedShowQuestion for next question');
+                                        // Call showQuestion directly to avoid any reference issues
+                                        showQuestion();
+                                        console.log('Called showQuestion to show next question');
                                     } else {
                                         // When test is complete, save the final result
                                         const result = getTopRoutes(1)[0]?.route || 'No result';
@@ -833,114 +1086,316 @@
                         chatBox.innerHTML = `
                             <div class="message bot">
                                 <p>Lo siento, hubo un error al cargar la pregunta.</p>
-                                <p>Por favor, intenta recargar la página.</p>
+                                <p>Por favor, intenta recargar la página o reiniciar el test.</p>
                                 <p>Si el problema persiste, por favor contacta al soporte.</p>
                                 <p>Error: ${error.message}</p>
+                                <button id="reset-test-btn" class="btn btn-danger mt-3">Reiniciar Test</button>
                             </div>`;
+                        
+                        // Add event listener to the reset button after it's added to the DOM
+                        setTimeout(() => {
+                            const resetBtn = document.getElementById('reset-test-btn');
+                            if (resetBtn) {
+                                resetBtn.addEventListener('click', function() {
+                                    restartTest();
+                                });
+                            }
+                        }, 0);
                     }
                 }
             });
         }
 
-        function showResult() {
+        function getFullAnswers() {
+            // Create an array of objects with question and answer data
+            return questions.map((question, index) => ({
+                question: question.text,
+                answer: answerPattern[index] || '',
+                questionNumber: index + 1
+            }));
+        }
+
+        async function showResult(fromSaveResult = false) {
             // Hide the chat box and show close button
             chatBox.style.display = 'none';
             const closeBtn = document.getElementById('result-close-btn');
             if (closeBtn) closeBtn.style.display = 'block';
             
+            // Debug: Log the scores object to see what's in it
+            console.log('Scores object:', JSON.stringify(scores, null, 2));
+            
             // Calculate the result
             let sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-            let [topRoute, topScore] = sorted[0];
-            let secondary = sorted.length > 1 && sorted[1][1] >= topScore - 1 
-                ? `
+            
+            // Debug: Log the sorted array
+            console.log('Sorted scores:', JSON.stringify(sorted, null, 2));
+            
+            // Make sure we have valid results
+            if (sorted.length === 0) {
+                console.error('No scores available to determine result');
+                return;
+            }
+            
+            let topRoute = sorted[0][0] || 'No se pudo determinar';
+            let topScore = sorted[0][1] || 0;
+            
+            // Prepare secondary option if applicable
+            let secondary = '';
+            if (sorted.length > 1 && sorted[1][1] >= topScore - 1) {
+                secondary = `
                     <div style="margin-top: 20px;">
-                        <div style="font-weight: normal;">También podrías explorar:</div>
-                        <div style="font-weight: normal; margin-bottom: 10px;">${sorted[1][0]}</div>
-                    </div>` 
-                : "";
-            
-            let resultText = `
-                <div style="font-weight: normal;">Tu ruta ideal es:</div>
-                <div style="font-weight: bold; margin-bottom: 10px;">${topRoute}</div>
-                ${secondary}
-            `;
-            
-            // Save and display the result
-            saveResult(resultText);
-            showSavedResult(resultText);
-        }
-
-        function restartTest() {
-            console.log('Restarting test...');
-            // Clear all saved data
-            clearSavedResult();
-            clearTestState();
-            
-            // Reset test state
-            current = 0;
-            Object.keys(scores).forEach(key => delete scores[key]);
-            
-            // Clear chat box and hide close button
-            chatBox.innerHTML = '';
-            const closeBtn = document.getElementById('result-close-btn');
-            if (closeBtn) closeBtn.style.display = 'none';
-            
-            // Show the chat box and hide result
-            chatBox.style.display = 'block';
-            resultBox.style.display = 'none';
-            
-            // Reset progress
-            if (progressBar) {
-                progressBar.style.width = '0%';
+                        <div style="font-weight: normal;">También podrías explorar: <strong>${sorted[1][0] || ''}</strong></div>
+                    </div>`;
             }
             
-            // Show start screen and hide test content
-            const startScreen = document.getElementById('start-screen');
-            const testContent = document.getElementById('test-content');
-            if (startScreen && testContent) {
-                // Reset any inline styles that might interfere
-                startScreen.style.display = 'flex';
-                startScreen.style.flexDirection = 'column';
-                startScreen.style.alignItems = 'center';
-                startScreen.style.justifyContent = 'flex-start';
-                startScreen.style.textAlign = 'center';
-                startScreen.style.padding = '40px 20px';
-                startScreen.style.maxWidth = '600px';
-                startScreen.style.margin = '0 auto';
-                startScreen.style.minHeight = 'auto';
-                startScreen.style.boxSizing = 'border-box';
-                startScreen.style.flex = '1';
+            // Create result HTML with proper structure
+            const resultDiv = document.createElement('div');
+            resultDiv.style.marginBottom = '30px';
+            resultDiv.style.fontSize = '16px';
+            resultDiv.style.lineHeight = '1.5';
+            
+            // Main title
+            const mainTitle = document.createElement('h3');
+            mainTitle.style.color = '#2c3e50';
+            mainTitle.style.marginBottom = '20px';
+            mainTitle.style.fontSize = '32px';
+            mainTitle.style.fontWeight = 'bold';
+            mainTitle.textContent = '¡Tu resultado está listo!';
+            
+            // Result section with route
+            const resultSection = document.createElement('div');
+            const resultTitle = document.createElement('div');
+            resultTitle.textContent = 'Tu ruta ideal es:';
+            resultTitle.className = 'normal-text';
+            resultTitle.style.fontSize = '28px';
+            resultTitle.style.marginBottom = '12px';
+            
+            const routeName = document.createElement('div');
+            // Ensure we're setting text content, not HTML
+            routeName.textContent = topRoute.replace(/<[^>]*>?/gm, '');
+            routeName.style.fontSize = '40px';
+            routeName.style.fontWeight = 'bold';
+            routeName.style.color = '#2c3e50';
+            routeName.style.marginBottom = '30px';
+            
+            resultSection.appendChild(resultTitle);
+            resultSection.appendChild(routeName);
+            
+            // Secondary options if available
+            let secondarySection = null;
+            if (secondary) {
+                secondarySection = document.createElement('div');
+                secondarySection.style.marginTop = '20px';
                 
-                testContent.style.display = 'none';
+                const exploreText = document.createElement('div');
+                exploreText.className = 'normal-text';
+                exploreText.style.fontSize = '28px';
+                exploreText.style.marginBottom = '12px';
+                exploreText.textContent = 'También podrías explorar:';
                 
-                // Force a reflow to ensure styles are applied
-                void startScreen.offsetHeight;
+                const secondaryRoute = document.createElement('div');
+                secondaryRoute.style.fontWeight = 'bold';
+                // Clean any HTML tags from the secondary route
+                // Get the secondary route and clean any HTML tags
+                const secondaryRouteName = Array.isArray(sorted) && sorted[1] && sorted[1][0] 
+                    ? sorted[1][0].replace(/<[^>]*>?/gm, '') 
+                    : '';
+                secondaryRoute.textContent = secondaryRouteName;
+                
+                secondarySection.appendChild(exploreText);
+                secondarySection.appendChild(secondaryRoute);
             }
             
-            // Reset any form elements if they exist
-            const optionsContainer = document.querySelector('.options');
-            if (optionsContainer) {
-                optionsContainer.innerHTML = '';
+            // Create answer breakdown section for transparency
+            const breakdownSection = document.createElement('div');
+            breakdownSection.style.marginTop = '30px';
+            breakdownSection.style.padding = '15px';
+            breakdownSection.style.backgroundColor = '#f8f9fa';
+            breakdownSection.style.borderRadius = '8px';
+            breakdownSection.style.border = '1px solid #dee2e6';
+            
+            const breakdownTitle = document.createElement('h4');
+            breakdownTitle.textContent = 'Desglose de respuestas:';
+            breakdownTitle.style.marginBottom = '10px';
+            breakdownTitle.style.color = '#495057';
+            
+            // Create the answer breakdown in format "A3, B2, C1"
+            const answerCounts = {};
+            answerPattern.forEach(answer => {
+                if (answer) {
+                    answerCounts[answer] = (answerCounts[answer] || 0) + 1;
+                }
+            });
+            
+            const breakdownText = document.createElement('div');
+            breakdownText.style.fontFamily = 'monospace';
+            breakdownText.style.fontSize = '16px';
+            
+            // Format as "A3, B2, C1"
+            const formattedBreakdown = Object.entries(answerCounts)
+                .map(([letter, count]) => `${letter}${count}`)
+                .join(', ');
+            
+            breakdownText.textContent = formattedBreakdown;
+            
+            // Add route scores for additional transparency
+            const routeScores = document.createElement('div');
+            routeScores.style.marginTop = '10px';
+            routeScores.style.fontFamily = 'monospace';
+            routeScores.style.fontSize = '14px';
+            
+            const routeScoresList = Object.entries(scores)
+                .map(([route, score]) => `${route}: ${score}`)
+                .join(' | ');
+            
+            routeScores.textContent = 'Puntuaciones por ruta: ' + routeScoresList;
+            
+            breakdownSection.appendChild(breakdownTitle);
+            breakdownSection.appendChild(breakdownText);
+            breakdownSection.appendChild(routeScores);
+            
+            // Add the breakdown section to the result div
+            resultDiv.appendChild(breakdownSection);
+            
+            // Update the recent tests container with the answer breakdown
+            const recentTestsContainer = document.getElementById('recent-tests-container');
+            if (recentTestsContainer) {
+                // Create a new entry for recent tests
+                const recentTestEntry = document.createElement('div');
+                recentTestEntry.className = 'recent-test-entry';
+                recentTestEntry.style.padding = '10px';
+                recentTestEntry.style.margin = '10px 0';
+                recentTestEntry.style.backgroundColor = '#f8f9fa';
+                recentTestEntry.style.borderRadius = '5px';
+                recentTestEntry.style.border = '1px solid #dee2e6';
+                
+                // Add timestamp
+                const timestamp = document.createElement('div');
+                timestamp.style.fontWeight = 'bold';
+                timestamp.style.marginBottom = '5px';
+                const now = new Date();
+                timestamp.textContent = `Test completado: ${now.toLocaleString()}`;
+                
+                // Add result
+                const resultText = document.createElement('div');
+                resultText.textContent = `Resultado: ${topRoute}`;
+                resultText.style.marginBottom = '5px';
+                
+                // Add answer breakdown
+                const answerBreakdown = document.createElement('div');
+                answerBreakdown.style.fontFamily = 'monospace';
+                answerBreakdown.style.fontSize = '14px';
+                answerBreakdown.textContent = `Desglose de respuestas: ${formattedBreakdown}`;
+                
+                // Add all elements to the entry
+                recentTestEntry.appendChild(timestamp);
+                recentTestEntry.appendChild(resultText);
+                recentTestEntry.appendChild(answerBreakdown);
+                
+                // Clear any error messages
+                recentTestsContainer.innerHTML = '';
+                
+                // Add the entry to the container
+                recentTestsContainer.appendChild(recentTestEntry);
             }
             
-            // Scroll to top
-            window.scrollTo(0, 0);
-        }
+            // Restart button
+            const restartBtn = document.createElement('a');
+            restartBtn.id = 'restart-btn';
+            restartBtn.href = 'jc_test_vocacional.html?restart=true&_t=' + new Date().getTime();
+            restartBtn.style.marginTop = '30px';
+            restartBtn.style.display = 'inline-block';
+            restartBtn.style.padding = '10px 20px';
+            restartBtn.style.fontSize = '16px';
+            restartBtn.style.cursor = 'pointer';
+            restartBtn.style.backgroundColor = '#28a745';
+            restartBtn.style.color = 'white';
+            restartBtn.style.textDecoration = 'none';
+            restartBtn.style.border = 'none';
+            restartBtn.style.borderRadius = '5px';
+            restartBtn.style.transition = 'background-color 0.3s';
+            restartBtn.textContent = 'Hacer otro test';
+            restartBtn.onclick = function(e) {
+                e.preventDefault();
+                // Clear storage
+                localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+                localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                sessionStorage.clear();
+                console.log('Storage cleared!');
+                
+                // Force reload the page with restart parameter
+                window.location.href = 'jc_test_vocacional.html?restart=true&_t=' + new Date().getTime();
+            };
+            
+            // Assemble the result
+            resultDiv.appendChild(mainTitle);
+            resultDiv.appendChild(document.createElement('hr'));
+            resultDiv.appendChild(resultSection);
+            
+            // Add secondary section and restart button if they exist
+            if (secondarySection) {
+                resultDiv.appendChild(secondarySection);
+            }
+            resultDiv.appendChild(restartBtn);
+            
+            // Save the result only if not coming from saveResult already
+            if (!fromSaveResult) {
+                saveResult(resultDiv.outerHTML, true); // true = skipShowResult to prevent recursion
+            }
+            
+            // Display the result
+            resultBox.innerHTML = '';
+            resultBox.appendChild(resultDiv);
+            resultBox.style.display = 'block';
+            
+            // Hide the chat box
+            chatBox.style.display = 'none';
 
         function updateProgressBar() {
             const progress = (current / questions.length) * 100;
             progressBar.style.width = `${progress}%`;
         }
 
-        function showSavedResult(savedResult) {
-            console.log('Showing saved result:', savedResult);
-            // Hide start screen and show test content
-            const startScreen = document.getElementById('start-screen');
-            const testContent = document.getElementById('test-content');
-            if (startScreen && testContent) {
-                startScreen.style.display = 'none';
-                testContent.style.display = 'block';
+        async function showSavedResult(savedResult) {
+            console.log('showSavedResult called with type:', typeof savedResult);
+            
+            // Handle if savedResult is a Promise
+            if (savedResult instanceof Promise) {
+                console.warn('showSavedResult received a Promise instead of data. Resolving...');
+                try {
+                    savedResult = await savedResult;
+                    console.log('Promise resolved to:', typeof savedResult, savedResult ? 'with data' : 'null');
+                } catch (error) {
+                    console.error('Error resolving Promise in showSavedResult:', error);
+                    savedResult = null;
+                }
             }
+            
+
+            // Guard against invalid or empty data
+            if (!savedResult || typeof savedResult !== 'object' || Array.isArray(savedResult) || Object.keys(savedResult).length === 0) {
+                console.warn('showSavedResult: No valid saved result to show. Returning to start screen.');
+                localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+
+                // Show start screen and hide other sections
+                const startScreen = document.getElementById('start-screen');
+                const testContent = document.getElementById('test-content');
+                const resultContent = document.getElementById('result-content');
+
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    startScreen.style.opacity = '1';
+                    startScreen.style.visibility = 'visible';
+                }
+                if (testContent) testContent.style.display = 'none';
+                if (resultContent) resultContent.style.display = 'none';
+
+                // Re-init start button
+                setupStartButton();
+                return; // Exit early to avoid further processing
+            }
+
+            // ===== valid savedResult handling continues below =====
             
             // Extract result text and top routes from saved result
             let resultText, topRoutes;
@@ -976,20 +1431,36 @@
             
             if (resultBox) {
                 resultBox.style.display = 'block';
-                resultBox.style.fontSize = '30px';
                 resultBox.style.textAlign = 'center';
                 resultBox.style.padding = '20px';
-                resultBox.style.color = '#00005A';
+                resultBox.style.color = '#2c3e50';
                 resultBox.style.position = 'relative';
                 
                 // Create result content with proper font sizes and weights
                 let resultHTML = `
-                    <div style="margin-bottom: 30px; font-size: 16px; line-height: 1.5;">
-                        <div style="font-size: 24px; font-weight: normal;">
-                            ${resultText}
+                    <div style="margin: 0 auto 30px; max-width: 600px; font-size: 16px; line-height: 1.5; text-align: center;">
+                        <h3 style="color: #2c3e50; margin-bottom: 20px;">¡Tu resultado está listo!</h3>
+                        <div style="font-size: 24px; margin-bottom: 2px;">Tu ruta ideal es:</div>
+                        <div style="font-size: 28px; font-weight: bold; color: #2c3e50; margin-bottom: 30px;">
+                            ${topRoutes[0]?.route || 'No disponible'}
                         </div>
+                `;
+                
+                // Add secondary route if available
+                if (topRoutes.length > 1) {
+                    resultHTML += `
+                        <div style="margin: 10px 0 5px;">
+                            <div style="margin-bottom: 2px; font-size: 20px;">También podrías explorar:</div>
+                            <div style="font-weight: bold; font-size: 22px; color: #2c3e50;">
+                                ${topRoutes[1]?.route || ''}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                resultHTML += `
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto 30px;">
+                    <p style="display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto 30px;">
                 `;
                 
                 // Add buttons with custom text and links
@@ -1006,70 +1477,265 @@
                               font-size: 16px; font-weight: normal; transition: background-color 0.3s;">
                         Explorá las rutas de aprendizaje y los cursos incluidos en cada ruta antes de empezar
                     </a>
+                </p>
                 `;
                 
                 resultHTML += `
                     </div>
-                    <button id="restart-btn" style="margin-top: 20px; padding: 10px 20px; 
-                            font-size: 16px; cursor: pointer; background-color: #808080; 
-                            color: white; border: none; border-radius: 5px; transition: background-color 0.3s;">
+                    <a id="restart-btn" href="jc_test_vocacional.html?start=true&_t=${new Date().getTime()}" 
+                       style="display: inline-block; margin-top: 20px; padding: 10px 20px; 
+                              font-size: 16px; cursor: pointer; background-color: #808080; 
+                              color: white; text-decoration: none; border: none; border-radius: 5px; 
+                              transition: background-color 0.3s;" onclick="localStorage.clear(); sessionStorage.clear(); console.log('Storage cleared!');">
                         Volver a tomar el test
-                    </button>
+                    </a>
                 `;
                 
                 resultBox.innerHTML = resultHTML;
-                
-                // Re-attach event listener to the restart button
+                                // Completely reset the app when restart button is clicked
                 const restartBtn = document.getElementById('restart-btn');
                 if (restartBtn) {
-                    restartBtn.addEventListener('click', restartTest);
+                    // Remove any existing listeners
+                    const newRestartBtn = restartBtn.cloneNode(true);
+                    restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
+                    
+                    // Use the restartTest function for consistent restart behavior
+                    newRestartBtn.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return restartTest();
+                    };
+                    
+                    console.log('Restart button ready');
                 }
             }
         }
 
-        // Check for existing test result on page load
-        window.onload = function() {
-            // First, ensure the loader is hidden
-            hideLoader();
-            
-            // Check for saved result first
+        /**
+         * Check for saved results and restore state
+         */
+        async function checkSavedResults() {
+            // Add a small delay to ensure everything is loaded
+            await new Promise(resolve => setTimeout(resolve, 500));
             try {
-                const savedResult = getSavedResult();
-                console.log('Found saved result on load:', savedResult);
-                if (savedResult) {
-                    // If we have a saved result, show it immediately
-                    // Use setTimeout to ensure DOM is fully loaded
-                    setTimeout(() => showSavedResult(savedResult), 0);
-                    return;
-                }
-            } catch (e) {
-                console.error('Error checking for saved result:', e);
-            }
-            
-            // Then check for saved state
-            const savedState = getTestState();
-            if (savedState) {
-                // If there's a saved state but no final result, restore the test state
-                current = savedState.current || 0;
-                Object.assign(scores, savedState.scores || {});
+                console.log('🔍 DEBUG: checkSavedResults called');
+                console.log('🔍 DEBUG: localStorage keys present:', Object.keys(localStorage));
+                console.log('🔍 DEBUG: TEST_STATE exists?', Boolean(localStorage.getItem(STORAGE_KEYS.TEST_STATE)));
+                console.log('🔍 DEBUG: TEST_RESULT exists?', Boolean(localStorage.getItem(STORAGE_KEYS.TEST_RESULT)));
+                console.log('🔍 Checking for saved results...');
                 
-                // Show the test content and load the saved question
-                const startScreen = document.getElementById('start-screen');
-                const testContent = document.getElementById('test-content');
-                if (startScreen && testContent) {
-                    startScreen.style.display = 'none';
-                    testContent.style.display = 'block';
-                    // Only show question if not already at the end
-                    if (current < questions.length) {
-                        showQuestion();
-                    } else {
-                        showResult();
+                // Check for restart flag in URL first
+                const urlParams = new URLSearchParams(window.location.search);
+                const restartFlag = urlParams.get('restart');
+                
+                // Clear any restart flags from URL immediately
+                if (restartFlag || urlParams.has('_t')) {
+                    console.log('🔄 Restart detected - cleaning up URL');
+                    const cleanUrl = new URL(window.location.href);
+                    cleanUrl.searchParams.delete('restart');
+                    cleanUrl.searchParams.delete('_t');
+                    window.history.replaceState({}, document.title, cleanUrl.toString());
+                }
+                
+                // If this is a restart, clear all state and show start screen
+                if (restartFlag === 'true') {
+                    console.log('🔄 Restart detected - clearing state and showing start screen');
+                    
+                    // Clear all state
+                    current = 0;
+                    scores = {};
+                    answerPattern = Array(questions.length).fill('');
+                    
+                    // Clear any saved results from storage (both localStorage and cookies)
+                    localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                    localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+                    
+                    // Also clear cookies
+                    deleteCookie('TEST_STATE');
+                    deleteCookie('TEST_RESULT');
+                    console.log('Cleared all test data from cookies and localStorage');
+                    
+                    // Update UI to show start screen
+                    console.log('Updating UI...');
+                    const startScreen = document.getElementById('start-screen');
+                    const testContent = document.getElementById('test-content');
+                    const resultContent = document.getElementById('result-content');
+                    
+                    if (startScreen) {
+                        startScreen.style.display = 'flex';
+                        startScreen.style.opacity = '1';
+                        startScreen.style.visibility = 'visible';
+                        console.log('Start screen shown');
+                    }
+                    
+                    if (testContent) {
+                        testContent.style.display = 'none';
+                        console.log('Test content hidden');
+                    }
+                    
+                    if (resultContent) {
+                        resultContent.style.display = 'none';
+                        console.log('Result content hidden');
+                    }
+                    
+                    // Reset any form elements
+                    const form = document.querySelector('form');
+                    if (form) {
+                        form.reset();
+                        console.log('Form reset');
+                    }
+                    
+                    // Clear any timers
+                    console.log('Clearing timers...');
+                    const highestTimeoutId = setTimeout(';');
+                    for (let i = 0; i < highestTimeoutId; i++) {
+                        clearTimeout(i);
+                        clearInterval(i);
+                    }
+                    
+                    // Force reflow to ensure UI updates
+                    if (document.body) {
+                        document.body.style.display = 'none';
+                        void document.body.offsetHeight; // Trigger reflow
+                        document.body.style.display = '';
+                    }
+                    
+                    // Add a small delay to ensure all cleanup is complete
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Reinitialize the start button
+                    console.log('Setting up start button...');
+                    setupStartButton();
+                    
+                    console.log('✅ Full reset complete, ready for new test');
+                    return false;
+                }
+                
+                // Check for saved results first (prioritize showing results if available)
+                console.log('Checking for saved results first...');
+                
+                if (localStorage.getItem(STORAGE_KEYS.TEST_RESULT)) {
+                    console.log('📊 Found saved result, attempting to display...');
+                    try {
+                        const savedResult = getSavedResult();
+                        if (savedResult) {
+                            await showSavedResult(savedResult);
+                            return true;
+                        } else {
+                            console.warn('⚠️ Invalid saved result, clearing...');
+                            localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                        }
+                    } catch (e) {
+                        console.error('❌ Error showing saved result:', e);
+                        localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
                     }
                 }
+                
+                // Then check for saved test state
+                console.log('Checking for saved test state...');
+                const savedTestState = localStorage.getItem(STORAGE_KEYS.TEST_STATE);
+                console.log('🔍 DEBUG: Raw saved test state:', savedTestState);
+                
+                if (savedTestState) {
+                    console.log('📝 Found saved test state, attempting to restore...');
+                    try {
+                        // Try to restore the test state
+                        console.log('🔍 DEBUG: Calling getTestState()');
+                        const restored = await getTestState();
+                        console.log('🔍 DEBUG: getTestState() returned:', restored);
+                        console.log('🔍 DEBUG: Current after restore:', current);
+                        console.log('🔍 DEBUG: Scores after restore:', scores);
+                        
+                        if (restored) {
+                            console.log('✅ Successfully restored test state, current question:', current);
+                            
+                            // Update UI to show test content
+                            const startScreen = document.getElementById('start-screen');
+                            const testContent = document.getElementById('test-content');
+                            const resultContent = document.getElementById('result-content');
+                            console.log('🔍 DEBUG: Elements exist?', {
+                                startScreen: !!startScreen,
+                                testContent: !!testContent,
+                                resultContent: !!resultContent
+                            });
+                            
+                            if (startScreen) {
+                                startScreen.style.display = 'none';
+                            }
+                            
+                            if (testContent) {
+                                testContent.style.display = 'block';
+                            }
+                            
+                            if (resultContent) {
+                                resultContent.style.display = 'none';
+                            }
+                            
+                            // Special handling for slides 1 and 7 to prevent restart
+                            // We'll always show the current question without resetting
+                            console.log('Current question index:', current);
+                            
+                            // Check if we've reached the end of the test
+                            console.log('🔍 DEBUG: current:', current, 'questions.length:', questions.length);
+                            if (current >= questions.length) {
+                                console.log('Test completed, showing results instead of question', current);
+                                showResult();
+                            } else {
+                                // Show the current question
+                                console.log('🔍 DEBUG: About to call showQuestion(true) for question', current);
+                                showQuestion(true);
+                                // Always update the progress bar to reflect the current question
+                                updateProgressBar();
+                                console.log('🔍 DEBUG: After showQuestion call');
+                            }
+                            
+                            // Ensure the progress bar is updated even if there's a delay in showing the question
+                            setTimeout(() => updateProgressBar(), 100);
+                            return true;
+                        } else {
+                            console.warn('⚠️ Failed to restore test state, clearing...');
+                            localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+                        }
+                    } catch (e) {
+                        console.error('❌ Error restoring test state:', e);
+                        localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+                    }
+                }
+                
+                console.log('ℹ️ No saved state found, showing start screen');
+                // If no saved state or result, ensure start screen is shown
+                const startScreen = document.getElementById('start-screen');
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    startScreen.style.opacity = '1';
+                    startScreen.style.visibility = 'visible';
+                }
+                
+                // Reinitialize the start button
+                setupStartButton();
+                
+            } catch (e) {
+                console.error('❌ Error in checkSavedResults:', e);
+                
+                // On error, ensure we still show the start screen
+                const startScreen = document.getElementById('start-screen');
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    startScreen.style.opacity = '1';
+                    startScreen.style.visibility = 'visible';
+                }
+                
+                // Try to set up the start button
+                try {
+                    setupStartButton();
+                } catch (buttonError) {
+                    console.error('❌ Failed to set up start button:', buttonError);
+                    // Last resort: reload the page
+                    window.location.href = window.location.pathname;
+                }
             }
             
-            // Fallback: Hide loader after a short delay
-            setTimeout(hideLoader, 500);
+            return false;
         }
         
         function hideLoader() {
@@ -1085,6 +1751,144 @@
             }
         }
         
+        /**
+         * Set up the start button with robust event handling and error recovery
+         * @returns {boolean} True if setup was successful, false otherwise
+         */
+        // This function has been moved to the top of the script to avoid ReferenceError
+        function _setupStartButtonOld() {
+            console.log('🔘 SETUP START BUTTON - Starting initialization...');
+            
+            try {
+                // 1. Get DOM elements
+                const startButton = document.getElementById('start-button');
+                const startScreen = document.getElementById('start-screen');
+                const testContent = document.getElementById('test-content');
+                
+                // 2. Validate elements exist
+                if (!startButton || !startScreen || !testContent) {
+                    console.error('❌ CRITICAL: Required elements not found:', {
+                        startButton: !!startButton,
+                        startScreen: !!startScreen,
+                        testContent: !!testContent
+                    });
+                    return false;
+                }
+                
+                console.log('✅ Found all required elements');
+                
+                // 3. Create a new button to replace the existing one (removes old event listeners)
+                console.log('🔄 Creating fresh button instance...');
+                const newButton = startButton.cloneNode(true);
+                
+                // 4. Store reference to the parent node before replacing
+                const parentNode = startButton.parentNode;
+                if (!parentNode) {
+                    console.error('❌ CRITICAL: Could not find parent node for start button');
+                    return false;
+                }
+                
+                // 5. Define the click handler first so it's in scope for the event listener
+                const handleStart = (e) => {
+                    console.log('🚀 Start button clicked!');
+                    
+                    // Prevent default and stop propagation
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                    }
+                    
+                    try {
+                        // IMPORTANT: Always use the startTest function for consistent initialization
+                        console.log('🔍 Calling startTest() from click handler...');
+                        startTest(false);
+                        return true;
+                    } catch (error) {
+                        console.error('❌ Error in start button handler:', error);
+                        // Last resort: try to show the first question directly
+                        if (typeof showQuestion === 'function') {
+                            showQuestion();
+                        }
+                        return false;
+                    }
+                };
+                
+                // 6. Replace the button in the DOM
+                console.log('🔄 Replacing button in DOM...');
+                try {
+                    const newParent = parentNode.cloneNode(false);
+                    parentNode.parentNode.replaceChild(newParent, parentNode);
+                    newParent.appendChild(newButton);
+                    console.log('✅ Successfully replaced button in DOM');
+                } catch (replaceError) {
+                    console.error('❌ Error replacing button in DOM:', replaceError);
+                    // Fallback: Just use the existing button
+                    console.log('⚠️ Falling back to existing button');
+                    return false;
+                }
+                
+                // 7. Make the button visible and interactive
+                newButton.style.display = 'block';
+                newButton.style.visibility = 'visible';
+                newButton.style.opacity = '1';
+                newButton.disabled = false;
+                newButton.style.boxShadow = '0 0 10px rgba(46, 204, 113, 0.5)';
+                
+                // 8. Add event listeners
+                console.log('🎯 Adding event listeners to start button...');
+                
+                // Remove any existing event listeners first
+                newButton.removeEventListener('click', handleStart);
+                newButton.removeEventListener('touchstart', handleStart);
+                
+                // Add new event listeners with proper options
+                newButton.addEventListener('click', handleStart, { capture: true });
+                newButton.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    handleStart(e);
+                }, { passive: false, capture: true });
+                
+                // Also add as onclick for good measure
+                newButton.onclick = handleStart;
+                
+                // 9. Test the button programmatically
+                try {
+                    console.log('🔍 Testing start button programmatically...');
+                    const clickEvent = new MouseEvent('click', {
+                        view: window,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    newButton.dispatchEvent(clickEvent);
+                } catch (e) {
+                    console.warn('⚠️ Could not programmatically test start button:', e);
+                }
+                
+                console.log('✅ Start button setup completed successfully');
+                return true;
+                
+            } catch (error) {
+                console.error('❌ CRITICAL ERROR in setupStartButton:', error);
+                // Try to recover by reloading the page
+                setTimeout(() => window.location.reload(true), 1000);
+                return false;
+            }
+        }
+        
+        // Add normal text style
+        const normalTextStyle = document.createElement('style');
+        normalTextStyle.textContent = `
+            .normal-text {
+                font-weight: 400 !important;
+                font-style: normal !important;
+                text-transform: none !important;
+                letter-spacing: normal !important;
+                line-height: normal !important;
+            }
+        `;
+        document.head.appendChild(normalTextStyle);
+
         // Add fade-out animation for loader
         const style = document.createElement('style');
         style.textContent = `
@@ -1098,66 +1902,219 @@
         `;
         document.head.appendChild(style);
 
-        // Initialize app when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            // First hide the loader
-            hideLoader();
-            // Then initialize the app
-            initApp();
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🔍 DEBUG: DOMContentLoaded handler started');
             
-            // Show saved result if exists
-            const savedResult = getSavedResult();
-            if (savedResult) {
-                showSavedResult(savedResult);
+            // Force clear localStorage if we detect a reload loop
+            const now = new Date().getTime();
+            const lastInit = localStorage.getItem('lastInitTime');
+            
+            if (lastInit && (now - parseInt(lastInit)) < 2000) {
+                console.warn('⚠️ Detected potential reload loop! Clearing all state...');
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Remove URL parameters
+                if (window.location.search) {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
             }
+            
+            // Record this initialization
+            localStorage.setItem('lastInitTime', now);
+            
+            // IMPORTANT FIX: Call checkSavedResults and WAIT for the result
+            // Let the function handle UI updates based on state
+            console.log('🔍 DEBUG: About to await checkSavedResults()');
+            const stateRestored = await checkSavedResults();
+            console.log('🔍 DEBUG: checkSavedResults returned:', stateRestored);
+            
+            // Only show start screen and set up start button if no state was restored
+            if (!stateRestored) {
+                console.log('🔍 DEBUG: No state restored, showing start screen');
+                const startScreen = document.getElementById('start-screen');
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    startScreen.style.opacity = '1';
+                    startScreen.style.visibility = 'visible';
+                }
+                
+                // Initialize the start button only if we're not resuming a test
+                setupStartButton();
+            }
+            
+            // Show saved result if exists (but only if not a restart)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (!urlParams.has('restart') && !urlParams.has('_t')) {
+                const savedResult = await getSavedResult();
+                if (savedResult) {
+                    showSavedResult(savedResult);
+                }
+            }
+        });
             
             // Hide loader after a delay to ensure everything is loaded
             // Increased delay to keep loader visible longer
             setTimeout(hideLoader, 2500); // 2.5 seconds
-        });
         
         // Fallback: Hide loader after 3 seconds if still visible
         setTimeout(hideLoader, 3000);
 
-        function initApp() {
-            console.log('Initializing app...');
+        // Removed duplicate _initAppOld function that was causing issues
+            const urlParams = new URLSearchParams(window.location.search);
+            const isRestart = urlParams.has('restart') || urlParams.has('_t');
             
-            // Set up start button
-            const startButton = document.getElementById('start-button');
-            if (startButton) {
-                console.log('Start button found');
-                startButton.addEventListener('click', function() {
-                    console.log('Start button clicked');
+            if (isRestart) {
+                console.log('App initialized after restart, performing cleanup...');
+                
+                // Clear URL parameters
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+                
+                // Clear any saved state
+                clearTestState();
+                
+                // Ensure the start screen is shown
+                const startScreen = document.getElementById('start-screen');
+                const testContent = document.getElementById('test-content');
+                
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    startScreen.style.opacity = '1';
+                    startScreen.style.visibility = 'visible';
+                }
+                
+                if (testContent) {
+                    testContent.style.display = 'none';
+                }
+                
+                // Set up the start button
+                setupStartButton();
+                
+                console.log('App reinitialized after restart');
+                return;
+            }
+            
+            // Check for saved result or in-progress test
+            try {
+                console.log('Checking for saved test results...');
+                const savedResult = await getSavedResult();
+                if (savedResult) {
+                    console.log('Found saved result, showing result screen');
+                    showSavedResult(savedResult);
+                    return; // Exit early if we're showing a saved result
+                }
+                
+                console.log('No saved results found, checking for in-progress test...');
+                
+                // Load test state here, after questions are loaded
+                const savedState = await getTestState();
+                if (savedState) {
+                    console.log('Found saved test state');
+                    console.log('Restored test state:', { 
+                        current, 
+                        scores: {...scores}, 
+                        answerPattern: [...answerPattern] 
+                    });
+                    
+                    console.log('Found in-progress test, showing test content');
                     const startScreen = document.getElementById('start-screen');
                     const testContent = document.getElementById('test-content');
-                    
                     if (startScreen && testContent) {
                         console.log('Hiding start screen, showing test content');
                         startScreen.style.display = 'none';
                         testContent.style.display = 'block';
-                        // Initialize the test
+                        
+                        // Ensure the question container is visible
+                        const questionContainer = document.querySelector('.question-container');
+                        if (questionContainer) {
+                            questionContainer.style.display = 'block';
+                        }
+                        
+                        // Show the current question immediately
+                        console.log('Showing question', current + 1, 'of', questions.length);
                         showQuestion();
-                    } else {
-                        console.error('Could not find required elements:', {startScreen, testContent});
+                        return; // Exit early as we're showing the test
                     }
-                });
-            } else {
-                console.error('Start button not found');
-            }
-            
-            // Show saved result if exists
-            try {
-                const savedResult = getSavedResult();
-                if (savedResult) {
-                    showSavedResult(savedResult);
+                } else {
+                    console.log('No in-progress test found, showing start screen');
                 }
             } catch (e) {
-                console.error('Error loading saved result:', e);
+                console.error('Error checking saved state:', e);
             }
             
-            // Hide loader when everything is ready
-            hideLoader();
+            try {
+                // Set up start button for new tests
+                const startButton = document.getElementById('start-button');
+                if (startButton) {
+                    console.log('Start button found');
+                    // IMPORTANT: Don't add a new event listener here - the setupStartButton function
+                    // has already set up the proper event handler that uses startTest()
+                    console.log('Using centralized start button handler from setupStartButton()');
+                    
+                    // Call setupStartButton to ensure the button uses the proper handler
+                    setupStartButton();
+                } else {
+                    console.error('Start button not found');
+                }
+                
+                // Hide loader when everything is ready
+                hideLoader();
+            } catch (e) {
+                console.error('Error setting up start button:', e);
+                // Still try to hide the loader even if there's an error
+                hideLoader();
+            }
         }
+    // End of init function and app initialization
+    
+    /**
+     * Restarts the test by clearing all state and navigating back to the start screen
+     * Clears localStorage and cookies for both test state and results
+     */
+    function restartTest() {
+        console.log('🔄 Restarting test...');
+        
+        // Clear all state variables
+        current = 0;
+        scores = {};
+        answerPattern = Array(questions.length).fill('');
+        
+        // Clear localStorage
+        localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+        localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+        
+        // Clear cookies
+        deleteCookie('TEST_STATE');
+        deleteCookie('TEST_RESULT');
+        console.log('Cleared all test data from cookies and localStorage');
+        
+        // Update UI
+        const startScreen = document.getElementById('start-screen');
+        const testContent = document.getElementById('test-content');
+        const resultContent = document.getElementById('result-content');
+        
+        if (startScreen) {
+            startScreen.style.display = 'flex';
+            startScreen.style.opacity = '1';
+            startScreen.style.visibility = 'visible';
+        }
+        
+        if (testContent) {
+            testContent.style.display = 'none';
+        }
+        
+        if (resultContent) {
+            resultContent.style.display = 'none';
+        }
+        
+        console.log('Test restarted successfully');
+        return true;
+    }
+    
+    // Call initApp to initialize the application
+    initApp();
     </script>
     
     <!-- Initialize the loader when the page loads -->
@@ -1178,22 +2135,13 @@
     
     <!-- Simple loader hide script -->
     <script>
-        // Function to hide loader
-        function hideLoader() {
+        // Fallback: hide loader after 2 seconds
+        setTimeout(function() {
             const loader = document.getElementById('loader');
             if (loader) {
                 loader.style.display = 'none';
             }
-        }
-        
-        // Hide loader when everything is loaded
-        if (document.readyState === 'complete') {
-            hideLoader();
-        } else {
-            window.addEventListener('load', hideLoader);
-            // Fallback: hide after 2 seconds
-            setTimeout(hideLoader, 2000);
-        }
+        }, 2000);
     </script>
 </body>
 </html>

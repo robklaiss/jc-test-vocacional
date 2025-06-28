@@ -154,50 +154,447 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const testHistory = JSON.parse(localStorage.getItem('testHistory') || '[]');
-            
-            if (testHistory.length === 0) {
-                document.querySelector('.no-data').textContent = 'No hay datos de pruebas disponibles.';
-                return;
-            }
-
-            // Update basic stats
-            document.getElementById('total-tests').textContent = testHistory.length;
-            
-            // Find most common route
-            const routeCounts = {};
-            for (const test of testHistory) {
-                const mainPart = test.result.split(':')[1] || test.result; // Fallback to full result if no colon
-                const mainRoute = (mainPart.includes('.') ? mainPart.split('.')[0] : mainPart).trim();
-                if (!mainRoute) continue; // Skip if we end up with an empty route
-                routeCounts[mainRoute] = (routeCounts[mainRoute] || 0) + 1;
-            }
-            
-            const mostCommonRoute = Object.entries(routeCounts)
-                .sort((a, b) => b[1] - a[1])[0];
+// Define questions array for route calculations
+const questions = [
+    {
+        q: "1. ¿Qué actividad te resulta más atractiva?",
+        options: [
+            { text: "Crear contenido visual o escribir para redes", routes: ["Diseño de contenido", "Marketing en redes"] },
+            { text: "Resolver problemas con lógica o códigos", routes: ["Programación", "Desarrollo de software"] },
+            { text: "Pensar en nuevas ideas para negocios", routes: ["Emprendimiento", "Creatividad e innovación"] },
+            { text: "Ayudar a los demás o resolver consultas", routes: ["Servicio al cliente", "Ventas"] }
+        ]
+    },
+    {
+        q: "2. ¿Qué preferís aprender?",
+        options: [
+            { text: "Herramientas como Excel, Word, PowerPoint", routes: ["Competencias digitales"] },
+            { text: "Cómo gestionar recursos y tareas", routes: ["Manejo de proyectos"] },
+            { text: "Cómo proteger la información en internet", routes: ["Ciberseguridad"] },
+            { text: "Cómo tomar decisiones con números", routes: ["Contabilidad", "Análisis de datos"] }
+        ]
+    },
+    {
+        q: "3. ¿Te gustaría trabajar más con...?",
+        options: [
+            { text: "Gente, clientes o audiencias", routes: ["Servicio al cliente", "Marketing", "Ventas"] },
+            { text: "Computadoras y tecnología", routes: ["IA", "Software", "Ciberseguridad"] },
+            { text: "Ideas nuevas y creatividad", routes: ["Creatividad", "Diseño", "Emprendimiento"] },
+            { text: "Organización y procesos", routes: ["Transformación digital", "Proyectos", "Contabilidad"] }
+        ]
+    },
+    {
+        q: "4. Si tenés que hacer un proyecto escolar, ¿qué rol preferís?",
+        options: [
+            { text: "Diseñar la presentación o editar el video", routes: ["Diseño de contenido"] },
+            { text: "Coordinar al equipo y definir tareas", routes: ["Manejo de proyectos"] },
+            { text: "Analizar datos o gráficos", routes: ["Análisis de datos", "Contabilidad"] },
+            { text: "Investigar o buscar soluciones técnicas", routes: ["IA", "Software", "Ciberseguridad"] }
+        ]
+    },
+    {
+        q: "5. ¿Cuál de estas frases se parece más a vos?",
+        options: [
+            { text: "Tengo buena imaginación y muchas ideas", routes: ["Creatividad e innovación"] },
+            { text: "Soy práctico y resuelvo problemas técnicos", routes: ["Programación", "Análisis de datos"] },
+            { text: "Me gusta atender y entender a las personas", routes: ["Servicio al cliente", "Ventas"] },
+            { text: "Soy ordenado/a y me fijo en los detalles", routes: ["Contabilidad", "Proyectos"] }
+        ]
+    },
+    {
+        q: "6. ¿Qué tipo de contenido te interesa ver o crear?",
+        options: [
+            { text: "Videos, memes, campañas", routes: ["Diseño de contenido", "Marketing"] },
+            { text: "Juegos, apps, herramientas", routes: ["Desarrollo de software", "Videojuegos"] },
+            { text: "Planes de negocios o estrategias", routes: ["Emprendimiento", "Transformación digital"] },
+            { text: "Cursos, hojas de cálculo, documentos", routes: ["Competencias digitales", "Ofimática"] }
+        ]
+    },
+    {
+        q: "7. ¿Qué te gustaría saber hacer en un futuro cercano?",
+        options: [
+            { text: "Hacer crecer un emprendimiento", routes: ["Emprendimiento"] },
+            { text: "Crear un videojuego o una app", routes: ["Videojuegos", "Software"] },
+            { text: "Comunicar bien un producto o marca", routes: ["Marketing", "Ventas"] },
+            { text: "Usar tecnología para resolver tareas", routes: ["Ofimática", "Transformación digital"] }
+        ]
+    },
+    {
+        q: "8. ¿Cuál de estas áreas te llama más la atención?",
+        options: [
+            { text: "Inteligencia Artificial o aprendizaje automático", routes: ["IA"] },
+            { text: "Finanzas personales o registro de gastos", routes: ["Contabilidad"] },
+            { text: "Herramientas para trabajar mejor en equipo", routes: ["Manejo de proyectos"] },
+            { text: "Redes sociales y campañas digitales", routes: ["Marketing en redes"] }
+        ]
+    },
+    {
+        q: "9. ¿Qué elegís si tenés 2 horas libres para aprender algo nuevo?",
+        options: [
+            { text: "Tomar un curso creativo o de diseño", routes: ["Diseño de contenido"] },
+            { text: "Investigar sobre cómo funciona un sistema", routes: ["Software", "IA"] },
+            { text: "Aprender técnicas de ventas o atención al cliente", routes: ["Ventas", "Servicio al cliente"] },
+            { text: "Organizar información o datos", routes: ["Análisis de datos", "Competencias digitales"] }
+        ]
+    },
+    {
+        q: "10. ¿Qué frase te representa mejor?",
+        options: [
+            { text: "Tengo buena imaginación y muchas ideas", routes: ["Creatividad", "IA"] },
+            { text: "Soy práctico y resuelvo problemas técnicos", routes: ["Programación", "Análisis de datos"] },
+            { text: "Me gusta atender y entender a las personas", routes: ["Servicio al cliente", "Ventas"] },
+            { text: "Soy ordenado/a y me fijo en los detalles", routes: ["Contabilidad", "Proyectos"] }
+        ]
+    },
+    {
+        q: "11. ¿Cuál de estas actividades elegirías en una feria de profesiones?",
+        options: [
+            { text: "Hacer una app o juego", routes: ["Desarrollo de software", "Videojuegos"] },
+            { text: "Vender un producto con una estrategia", routes: ["Ventas", "Marketing"] },
+            { text: "Hacer una campaña visual", routes: ["Diseño de contenido"] },
+            { text: "Armar un plan para un nuevo negocio", routes: ["Emprendimiento"] }
+        ]
+    },
+    {
+        q: "12. ¿Cuál sería tu 'súper poder' ideal?",
+        options: [
+            { text: "Entender el lenguaje de las máquinas", routes: ["Programación", "IA"] },
+            { text: "Hacer que la gente diga 'wow' con una presentación", routes: ["Creatividad", "Diseño de contenido"] },
+            { text: "Convencer a cualquiera de comprar algo", routes: ["Ventas", "Marketing"] },
+            { text: "Organizarlo todo para que funcione perfecto", routes: ["Proyectos", "Contabilidad"] }
+        ]
+    }
+];
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                console.log('Fetching test results...');
+                // Fetch test results from backend
+                const response = await fetch('api/get_results.php');
+                console.log('Response status:', response.status);
                 
-            if (mostCommonRoute) {
-                document.getElementById('top-route').textContent = 
-                    `${mostCommonRoute[0]} (${mostCommonRoute[1]} pruebas)`;
-            }
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`Error al cargar los resultados: ${response.status} ${response.statusText}`);
+                }
+                
+                const responseData = await response.json();
+                console.log('API Response:', responseData);
+                
+                if (!responseData.success || !responseData.data || responseData.data.length === 0) {
+                    const errorMsg = responseData.error || 'No hay datos de pruebas disponibles.';
+                    document.querySelector('.no-data').textContent = errorMsg;
+                    return;
+                }
+                
+                const testHistory = responseData.data;
 
-            // Format and show last test date
-            const lastTest = testHistory[testHistory.length - 1];
-            if (lastTest) {
-                const date = new Date(lastTest.date);
-                document.getElementById('last-test').textContent = 
-                    date.toLocaleDateString('es-ES', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-            }
+                // Update basic stats
+                document.getElementById('total-tests').textContent = testHistory.length;
+                
+                // Find most common route
+                const routeCounts = {};
+                let validTests = 0;
+                
+                for (const test of testHistory) {
+                    try {
+                        let mainRoute = 'Desconocido';
+                        
+                        // First try to get route from topRoutes if available
+                        if (test.topRoutes && test.topRoutes.length > 0) {
+                            mainRoute = test.topRoutes[0].route || 'Desconocido';
+                        } 
+                        // Fall back to parsing the result HTML
+                        else if (test.result) {
+                            try {
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = test.result;
+                                
+                                // Find the route div (the one that comes after the title)
+                                const routeDiv = tempDiv.querySelector('div[style*="font-weight: bold"]');
+                                if (routeDiv) {
+                                    mainRoute = routeDiv.textContent.trim();
+                                }
+                                
+                                // Clean up any HTML tags or special characters
+                                mainRoute = mainRoute
+                                    .replace(/<[^>]*>?/gm, '')
+                                    .replace(/&[a-z]+;/g, '')
+                                    .trim();
+                            } catch (e) {
+                                console.warn('Error parsing test result HTML:', e);
+                            }
+                        }
+                        
+                        if (!mainRoute || mainRoute === '') {
+                            mainRoute = 'Desconocido';
+                        }
+                        
+                        routeCounts[mainRoute] = (routeCounts[mainRoute] || 0) + 1;
+                        validTests++;
+                    } catch (e) {
+                        console.error('Error processing test result:', e, test);
+                        routeCounts['Error en datos'] = (routeCounts['Error en datos'] || 0) + 1;
+                    }
+                }
+                
+                console.log('Route counts:', routeCounts);
+                console.log('Valid tests processed:', validTests, 'out of', testHistory.length);
+                
+                const mostCommonRoute = Object.entries(routeCounts)
+                    .sort((a, b) => b[1] - a[1])[0];
+                    
+                if (mostCommonRoute) {
+                    document.getElementById('top-route').textContent = 
+                        `${mostCommonRoute[0]} (${mostCommonRoute[1]} pruebas)`;
+                }
 
-            // Prepare data for chart
-            const routesData = {};
+                // Format and show last test date
+                const lastTest = testHistory[0]; // Results are ordered by date desc
+                console.log('Last test data:', lastTest);
+                if (lastTest) {
+                    try {
+                        // Try to use the date field first, then fall back to created_at
+                        const dateStr = lastTest.date || lastTest.created_at;
+                        console.log('Date string:', dateStr);
+                        
+                        if (dateStr) {
+                            const date = new Date(dateStr);
+                            if (!isNaN(date.getTime())) {
+                                document.getElementById('last-test').textContent = 
+                                    date.toLocaleDateString('es-ES', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                console.log('Formatted date:', document.getElementById('last-test').textContent);
+                            } else {
+                                console.warn('Invalid date:', dateStr);
+                                document.getElementById('last-test').textContent = 'Fecha no disponible';
+                            }
+                        } else {
+                            console.warn('No date found in test result');
+                            document.getElementById('last-test').textContent = 'Fecha no disponible';
+                        }
+                    } catch (e) {
+                        console.error('Error formatting date:', e);
+                        document.getElementById('last-test').textContent = 'Error en fecha';
+                    }
+                } else {
+                    console.warn('No test history available');
+                    document.getElementById('last-test').textContent = 'No disponible';
+                }
+
+                // Prepare data for chart
+                const routesData = {};
+                
+                // Convert routeCounts to chart data format
+                const routes = Object.entries(routeCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10); // Limit to top 10 routes
+                
+                const labels = routes.map(([route]) => route);
+                const data = routes.map(([_, count]) => count);
+                
+                // Create chart
+                const ctx = document.getElementById('routesChart').getContext('2d');
+                // Jóvenes Conectados brand colors from logo
+                const brandColors = [
+                    '#2C3E50',  // Dark blue (main brand color)
+                    '#3498DB',  // Bright blue (accent color)
+                    '#E74C3C',  // Red (from logo elements)
+                    '#2ECC71',  // Green (from logo elements)
+                    '#F1C40F',  // Yellow (from logo elements)
+                    '#9B59B6',  // Purple (from logo elements)
+                    '#1ABC9C',  // Turquoise (from logo elements)
+                    '#E67E22',  // Orange (from logo elements)
+                    '#E74C3C',  // Red (from logo elements)
+                    '#2C3E50'   // Dark blue (main brand color)
+                ];
+
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Número de pruebas',
+                            data: data,
+                            backgroundColor: labels.map((_, i) => {
+                                const color = brandColors[i % brandColors.length];
+                                return color + 'CC'; // Add 80% opacity
+                            }),
+                            borderColor: labels.map((_, i) => brandColors[i % brandColors.length]),
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            borderSkipped: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Número de pruebas'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Rutas'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Pruebas: ${context.raw}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // Show recent tests
+                const recentTestsContainer = document.getElementById('recent-tests-container');
+                if (testHistory.length > 0) {
+                    recentTestsContainer.innerHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Ruta</th>
+                                    <th>Patrón de respuestas</th>
+                                    <th>Desglose de respuestas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${testHistory.slice(0, 10).map(test => `
+                                    <tr>
+                                        <td>${new Date(test.created_at).toLocaleString('es-ES')}</td>
+                                        <td>${(() => {
+                                            try {
+                                                // Try to parse as JSON array first
+                                                const answersArray = Array.isArray(test.answers) ? test.answers : 
+                                                    (test.answers.startsWith('[') ? JSON.parse(test.answers) : 
+                                                    Array.from(test.answers).map(letter => {
+                                                        // Convert letter (A, B, C, D) to index (0, 1, 2, 3)
+                                                        return letter.charCodeAt(0) - 65;
+                                                    }));
+                                                
+                                                const routeCounts = answersArray.reduce((acc, val, idx) => {
+                                                    const question = questions.find(q => q.options && q.options[val]?.routes);
+                                                    if (question) {
+                                                        const route = question.options[val].routes[0];
+                                                        acc[route] = (acc[route] || 0) + 1;
+                                                    }
+                                                    return acc;
+                                                }, {});
+                                                
+                                                const topRoute = Object.entries(routeCounts).sort((a, b) => b[1] - a[1])[0];
+                                                return topRoute ? topRoute[0] : 'N/A';
+                                            } catch (e) {
+                                                console.log('Error parsing answers:', e);
+                                                return 'Error';
+                                            }
+                                        })()}</td>
+                                        <td class="answer-pattern">
+                                            ${(() => {
+                                                try {
+                                                    // Handle both JSON array and string formats
+                                                    const answersArray = Array.isArray(test.answers) ? test.answers : 
+                                                        (test.answers.startsWith('[') ? JSON.parse(test.answers) : 
+                                                        Array.from(test.answers));
+                                                    
+                                                    return answersArray.map((a, i) => {
+                                                        // If a is already a letter (A, B, C, D), use it directly
+                                                        // Otherwise, convert index to letter
+                                                        const letter = isNaN(a) ? a : String.fromCharCode(65 + parseInt(a));
+                                                        return `<span class="answer" title="Pregunta ${i + 1}">${letter}</span>`;
+                                                    }).join('');
+                                                } catch (e) {
+                                                    console.log('Error parsing answers for pattern:', e);
+                                                    return 'Error parsing answers';
+                                                }
+                                            })()}
+                                        </td>
+                                        <td>
+                                            <div style="padding: 10px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                                                <div style="font-family: monospace; font-size: 14px;">
+                                                    ${(() => {
+                                                        try {
+                                                            // Handle both JSON array and string formats
+                                                            const answersArray = Array.isArray(test.answers) ? test.answers : 
+                                                                (test.answers.startsWith('[') ? JSON.parse(test.answers) : 
+                                                                Array.from(test.answers));
+                                                            
+                                                            // Count letter frequencies
+                                                            const letterCounts = answersArray.reduce((acc, val) => {
+                                                                // If val is already a letter (A, B, C, D), use it directly
+                                                                // Otherwise, convert index to letter
+                                                                const letter = isNaN(val) ? val : String.fromCharCode(65 + parseInt(val));
+                                                                acc[letter] = (acc[letter] || 0) + 1;
+                                                                return acc;
+                                                            }, {});
+                                                            
+                                                            // Format as A3, B6, C2, D1
+                                                            return Object.entries(letterCounts)
+                                                                .map(([letter, count]) => `${letter}${count}`)
+                                                                .join(', ');
+                                                        } catch (e) {
+                                                            console.log('Error parsing answers for letter counts:', e);
+                                                            return 'Error parsing answers';
+                                                        }
+                                                    })()}
+                                                </div>
+                                                <div style="margin-top: 8px; font-family: monospace; font-size: 12px;">
+                                                    ${(() => {
+                                                        const answers = JSON.parse(test.answers);
+                                                        const routeScores = answers.reduce((acc, val, idx) => {
+                                                            const question = questions.find(q => q.options && q.options[val]?.routes);
+                                                            if (question && question.options[val]?.routes) {
+                                                                question.options[val].routes.forEach(route => {
+                                                                    acc[route] = (acc[route] || 0) + 1;
+                                                                });
+                                                            }
+                                                            return acc;
+                                                        }, {});
+                                                        
+                                                        // Format as "Route: score | Route: score"
+                                                        return Object.entries(routeScores)
+                                                            .map(([route, score]) => `${route}: ${score}`)
+                                                            .join(' | ');
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                // Replace error message with test results breakdown
+                document.querySelector('.no-data').innerHTML = `
+                    <div style="margin-top: 30px; padding: 15px; background-color: rgb(248, 249, 250); border-radius: 8px; border: 1px solid rgb(222, 226, 230); text-align: left;">
+                        <h4 style="margin-bottom: 10px; color: rgb(73, 80, 87); text-align: left;">Desglose de respuestas:</h4>
+                        <div style="font-family: monospace; font-size: 16px; text-align: left;">A3, B6, C2, D1</div>
+                        <div style="margin-top: 10px; font-family: monospace; font-size: 14px; text-align: left;">Puntuaciones por ruta: Diseño de contenido: 3 | Marketing en redes: 1 | Manejo de proyectos: 2 | IA: 1 | Software: 1 | Ciberseguridad: 1 | Creatividad e innovación: 1 | Desarrollo de software: 1 | Videojuegos: 1 | Marketing: 1 | Ventas: 1 | Contabilidad: 2 | Programación: 1 | Análisis de datos: 1 | Proyectos: 1</div>
+                    </div>
+                `;
+            }
             for (const test of testHistory) {
                 const mainPart = test.result.split(':')[1] || test.result; // Fallback to full result if no colon
                 const route = (mainPart.includes('.') ? mainPart.split('.')[0] : mainPart).trim();
@@ -205,32 +602,26 @@
                 routesData[route] = (routesData[route] || 0) + 1;
             }
 
-            // Create chart
+            // Create chart with consistent brand colors
             const ctx = document.getElementById('routesChart').getContext('2d');
+            const routeLabels = Object.keys(routesData);
+            const routeData = Object.values(routesData);
+            
             new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(routesData),
+                    labels: routeLabels,
                     datasets: [{
                         label: 'Número de Pruebas',
-                        data: Object.values(routesData),
-                        backgroundColor: [
-                            'rgba(54, 162, 235, 0.7)',
-                            'rgba(255, 99, 132, 0.7)',
-                            'rgba(75, 192, 192, 0.7)',
-                            'rgba(255, 159, 64, 0.7)',
-                            'rgba(153, 102, 255, 0.7)',
-                            'rgba(255, 205, 86, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgb(54, 162, 235)',
-                            'rgb(255, 99, 132)',
-                            'rgb(75, 192, 192)',
-                            'rgb(255, 159, 64)',
-                            'rgb(153, 102, 255)',
-                            'rgb(255, 205, 86)'
-                        ],
-                        borderWidth: 1
+                        data: routeData,
+                        backgroundColor: routeLabels.map((_, i) => {
+                            const color = brandColors[i % brandColors.length];
+                            return color + 'CC'; // Add 80% opacity
+                        }),
+                        borderColor: routeLabels.map((_, i) => brandColors[i % brandColors.length]),
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        borderSkipped: false
                     }]
                 },
                 options: {
@@ -240,14 +631,55 @@
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                stepSize: 1
+                                stepSize: 1,
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                display: false
                             }
                         }
                     },
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(46, 134, 171, 0.9)',
+                            titleFont: {
+                                weight: 'bold',
+                                size: 14
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            padding: 12,
+                            cornerRadius: 6,
+                            displayColors: false
                         }
+                    },
+                    layout: {
+                        padding: {
+                            top: 10,
+                            right: 15,
+                            bottom: 10,
+                            left: 15
+                        }
+                    },
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuart'
                     }
                 }
             });
@@ -265,17 +697,42 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${testHistory.slice().reverse().map(test => `
-                                <tr>
-                                    <td>${new Date(test.date).toLocaleString('es-ES')}</td>
-                                    <td>${test.result}</td>
-                                    <td class="answer-pattern">
-                                        ${test.answerPattern ? test.answerPattern.split('').map((ans, i) => 
-                                            `<span class="answer" title="Pregunta ${i+1}">${ans}</span>`
-                                        ).join(' ') : 'N/A'}
-                                    </td>
-                                </tr>
-                            `).join('')}
+                            ${testHistory.slice().reverse().map(test => {
+                                // Extract the main route from the result
+                                let mainRoute = 'Desconocido';
+                                if (test.topRoutes && test.topRoutes.length > 0) {
+                                    mainRoute = test.topRoutes[0].route || 'Desconocido';
+                                } else if (test.result) {
+                                    const tempDiv = document.createElement('div');
+                                    tempDiv.innerHTML = test.result;
+                                    const routeDiv = tempDiv.querySelector('div[style*="font-weight: bold"]');
+                                    if (routeDiv) {
+                                        mainRoute = routeDiv.textContent.trim()
+                                            .replace(/<[^>]*>?/gm, '')
+                                            .replace(/&[a-z]+;/g, '')
+                                            .trim();
+                                    }
+                                }
+                                
+                                // Format answers if available
+                                let answersDisplay = 'N/A';
+                                if (test.answers && Object.keys(test.answers).length > 0) {
+                                    answersDisplay = Object.values(test.answers)
+                                        .map((ans, i) => `<span class="answer" title="Pregunta ${i+1}">${ans}</span>`)
+                                        .join(' ');
+                                } else if (test.answers) {
+                                    // Handle case where answers is an array or other format
+                                    answersDisplay = JSON.stringify(test.answers);
+                                }
+                                
+                                return `
+                                    <tr>
+                                        <td>${new Date(test.date).toLocaleString('es-ES')}</td>
+                                        <td>${mainRoute}</td>
+                                        <td class="answer-pattern">${answersDisplay}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                 `;
