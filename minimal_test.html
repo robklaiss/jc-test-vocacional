@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Vocacional Minimal</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f6f8fa; margin: 0; }
+    #container { max-width: 480px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px #0001; padding: 32px 24px; }
+    #start, #question, #result { display: none; }
+    .active { display: block; }
+    .btn { margin: 16px 0 0 0; padding: 12px 24px; background: #3498db; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+    .btn:active { background: #217dbb; }
+    .option { display: block; margin: 12px 0; padding: 10px 18px; background: #eee; border-radius: 5px; border: none; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+    .option:hover { background: #d0e6f7; }
+    #progress { margin: 18px 0 0 0; color: #888; font-size: 14px; }
+    #result-title { font-size: 1.4em; margin-bottom: 14px; }
+    #restart { background: #27ae60; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="start" class="active">
+      <h2>Test de Orientación Vocacional</h2>
+      <button id="start-btn" class="btn">Comenzar</button>
+    </div>
+    <div id="question">
+      <div id="q-text"></div>
+      <div id="q-options"></div>
+      <div id="progress"></div>
+    </div>
+    <div id="result">
+      <div id="result-title"></div>
+      <div id="result-detail"></div>
+      <button id="restart" class="btn">Volver a hacer el test</button>
+    </div>
+  </div>
+  <script>
+// --- Minimal test logic ---
+const questions = [
+  { q: "¿Qué actividad te resulta más atractiva?", options: ["Crear contenido visual", "Resolver problemas con lógica", "Pensar en nuevas ideas", "Ayudar a los demás"] },
+  { q: "¿Qué preferís aprender?", options: ["Herramientas digitales", "Gestión de proyectos", "Ciberseguridad", "Contabilidad"] },
+  { q: "¿Te gustaría trabajar más con...?", options: ["Personas", "Tecnología", "Ideas", "Organización"] },
+  { q: "¿Qué rol preferís en un proyecto?", options: ["Diseño", "Coordinación", "Análisis de datos", "Investigación"] },
+  { q: "¿Qué frase te representa mejor?", options: ["Imaginación", "Resolución técnica", "Atención a personas", "Detalle y orden"] },
+  { q: "¿Qué tipo de contenido te interesa?", options: ["Visual", "Apps/Juegos", "Negocios", "Cursos"] },
+  { q: "¿Qué harías en tu tiempo libre?", options: ["Crear arte", "Programar", "Emprender", "Ayudar"] },
+  { q: "¿Cómo te describen tus amigos?", options: ["Creativo", "Analítico", "Líder", "Empático"] },
+  { q: "¿Qué elegís para aprender algo nuevo?", options: ["Diseño", "Tecnología", "Ventas", "Datos"] },
+  { q: "¿Qué frase te motiva?", options: ["Ideas nuevas", "Resolver problemas", "Ayudar a otros", "Organizar"] },
+  { q: "¿Qué harías en una feria de profesiones?", options: ["Crear una app", "Vender un producto", "Hacer una campaña", "Armar un plan"] },
+  { q: "¿Cuál sería tu súper poder ideal?", options: ["Hablar con máquinas", "Impresionar con presentaciones", "Convencer a cualquiera", "Organizarlo todo"] }
+];
+const routes = ["Creatividad", "Tecnología", "Negocios", "Social"];
+const routeMap = [0,1,2,3,  0,1,2,3,  0,1,2,3]; // Each option maps to a route index
+let state = {
+  current: 0,
+  answers: [],
+  scores: [0,0,0,0],
+  finished: false
+};
+const STORAGE_KEY = 'vocacional_test_state';
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  document.cookie = `test_state=${btoa(JSON.stringify(state))};path=/;max-age=604800`;
+}
+function loadState() {
+  let raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return false;
+  try {
+    let s = JSON.parse(raw);
+    if (s && Array.isArray(s.answers) && s.answers.length <= questions.length) {
+      state = s;
+      return true;
+    }
+  } catch {}
+  return false;
+}
+function clearState() {
+  localStorage.removeItem(STORAGE_KEY);
+  document.cookie = 'test_state=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
+}
+
+function showStart() {
+  document.getElementById('start').className = 'active';
+  document.getElementById('question').className = '';
+  document.getElementById('result').className = '';
+}
+function showQuestion() {
+  document.getElementById('start').className = '';
+  document.getElementById('question').className = 'active';
+  document.getElementById('result').className = '';
+  const q = questions[state.current];
+  document.getElementById('q-text').textContent = q.q;
+  const opts = document.getElementById('q-options');
+  opts.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.textContent = opt;
+    btn.onclick = () => {
+      state.answers[state.current] = i;
+      state.scores[routeMap[state.current*4+i]]++;
+      state.current++;
+      saveState();
+      if(state.current >= questions.length) {
+        state.finished = true;
+        showResult();
+        saveState();
+        sendResultToServer();
+      } else {
+        showQuestion();
+      }
+    };
+    opts.appendChild(btn);
+  });
+  document.getElementById('progress').textContent = `Pregunta ${state.current+1} de ${questions.length}`;
+}
+function showResult() {
+  document.getElementById('start').className = '';
+  document.getElementById('question').className = '';
+  document.getElementById('result').className = 'active';
+  const max = Math.max(...state.scores);
+  const idx = state.scores.findIndex(v=>v===max);
+  document.getElementById('result-title').textContent = `Tu perfil sugerido: ${routes[idx]}`;
+  document.getElementById('result-detail').textContent = `¡Gracias por completar el test!`;
+}
+document.getElementById('start-btn').onclick = ()=>{
+  state = {current:0,answers:[],scores:[0,0,0,0],finished:false};
+  saveState();
+  showQuestion();
+};
+document.getElementById('restart').onclick = ()=>{
+  state = {current:0,answers:[],scores:[0,0,0,0],finished:false};
+  clearState();
+  showStart();
+};
+// On load: restore state
+if(loadState() && state.finished) {
+  showResult();
+} else if(loadState()) {
+  showQuestion();
+} else {
+  showStart();
+}
+// --- Backend sync (minimal, POST to PHP) ---
+function sendResultToServer() {
+  fetch('api/save_result.php', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      answers: state.answers,
+      scores: state.scores,
+      profile: routes[state.scores.findIndex(v=>v===Math.max(...state.scores))],
+      timestamp: Date.now(),
+      cookie: document.cookie
+    })
+  }).then(r=>r.json()).then(data=>{
+    // Optionally show confirmation or error
+  }).catch(()=>{});
+}
+  </script>
+</body>
+</html>

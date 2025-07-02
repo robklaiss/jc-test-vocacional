@@ -138,9 +138,25 @@
                 <h3>Prueba Más Reciente</h3>
                 <p id="last-test">-</p>
             </div>
+            <div class="stat-card">
+                <h3>Hoy</h3>
+                <p id="tests-today">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Ayer</h3>
+                <p id="tests-yesterday">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Esta Semana</h3>
+                <p id="tests-week">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Este Mes</h3>
+                <p id="tests-month">0</p>
+            </div>
         </div>
 
-        <div class="chart-container">
+        <div id="chart-container" class="chart-container">
             <h2>Distribución de Rutas</h2>
             <canvas id="routesChart"></canvas>
         </div>
@@ -265,11 +281,18 @@ const questions = [
         ]
     }
 ];
-        document.addEventListener('DOMContentLoaded', async function() {
+        // Function to fetch test results
+        async function fetchTestResults() {
+            console.log('Fetching test results from API...');
             try {
-                console.log('Fetching test results...');
-                // Fetch test results from backend
-                const response = await fetch('api/get_results.php');
+                const response = await fetch('http://localhost:8000/api/get_results.php', {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    mode: 'cors'
+                });
+                
                 console.log('Response status:', response.status);
                 
                 if (!response.ok) {
@@ -281,122 +304,309 @@ const questions = [
                 const responseData = await response.json();
                 console.log('API Response:', responseData);
                 
-                if (!responseData.success || !responseData.data || responseData.data.length === 0) {
-                    const errorMsg = responseData.error || 'No hay datos de pruebas disponibles.';
-                    document.querySelector('.no-data').textContent = errorMsg;
-                    return;
+                if (!responseData || (Array.isArray(responseData) && responseData.length === 0)) {
+                    console.warn('No test results found');
+                    return [];
                 }
                 
-                const testHistory = responseData.data;
+                // Always use responseData.data if present (API returns {success:true, data:[...]})
+                const results = Array.isArray(responseData.data) ? responseData.data : [];
+                console.log('Raw API results:', results);
+                // Process and normalize the test history data
+                const normalized = results.map(test => {
+                    try {
+                        // Safely parse topRoutes
+                        let topRoutes = [];
+                        if (Array.isArray(test.topRoutes)) {
+                            topRoutes = test.topRoutes;
+                        } else if (typeof test.topRoutes === 'string') {
+                            try {
+                                topRoutes = JSON.parse(test.topRoutes);
+                                if (!Array.isArray(topRoutes)) topRoutes = [];
+                            } catch (e) {
+                                console.warn('Error parsing topRoutes:', e);
+                                topRoutes = [];
+                            }
+                        }
+
+                        // Safely parse fullAnswers
+                        let fullAnswers = [];
+                        if (Array.isArray(test.fullAnswers)) {
+                            fullAnswers = test.fullAnswers;
+                        } else if (typeof test.fullAnswers === 'string') {
+                            try {
+                                fullAnswers = JSON.parse(test.fullAnswers);
+                                if (!Array.isArray(fullAnswers)) fullAnswers = [];
+                            } catch (e) {
+                                console.warn('Error parsing fullAnswers:', e);
+                                fullAnswers = [];
+                            }
+                        }
+
+                        // Defensive: fill missing fields
+                        return {
+                            id: test.id || null,
+                            result: test.result || '',
+                            answers: test.answers || [],
+                            date: test.date || test.created_at || new Date().toISOString(),
+                            topRoutes,
+                            fullAnswers,
+                            ...test
+                        };
+                    } catch (e) {
+                        console.warn('Error normalizing test result:', e, test);
+                        return test;
+                    }
+                });
+                console.log('Normalized results:', normalized);
+                return normalized.filter(Boolean); // Remove any null entries from failed processing
+                
+            } catch (error) {
+                console.error('Error in fetchTestResults:', error);
+                throw error;
+            }
+        }
+        
+        // Function to calculate metrics from test results
+        function calculateMetrics(testHistory = [], today, yesterdayStr) {
+            // Ensure testHistory is an array
+            const history = Array.isArray(testHistory) ? testHistory : [];
+            
+            if (history.length === 0) {
+                return {
+                    testsToday: 0,
+                    testsYesterday: 0,
+                    testsThisWeek: 0,
+                    testsThisMonth: 0
+                };
+            }
+            
+            const testsToday = history.filter(test => {
+                try {
+                    const testDate = new Date(test.date || test.test_date || test.created_at || Date.now()).toISOString().split('T')[0];
+                    return testDate === today;
+                } catch (e) {
+                    console.error('Error processing test date:', e);
+                    return false;
+                }
+            }).length;
+            
+            const testsYesterday = history.filter(test => {
+                try {
+                    const testDate = new Date(test.date || test.test_date || test.created_at || Date.now()).toISOString().split('T')[0];
+                    return testDate === yesterdayStr;
+                } catch (e) {
+                    console.error('Error processing test date:', e);
+                    return false;
+                }
+            }).length;
+            
+            return {
+                testsToday,
+                testsYesterday,
+                testsThisWeek: history.length, // Simplified for now
+                testsThisMonth: history.length  // Simplified for now
+            };
+        }
+        
+        // Function to update the UI with test history
+        function updateTestHistoryUI(history, recentTestsContainer) {
+            if (!recentTestsContainer) return;
+            
+            if (!history || !Array.isArray(history)) {
+                if (recentTestsContainer) {
+    recentTestsContainer.innerHTML = `
+        <div class="alert alert-info">
+            No se encontraron resultados de pruebas. Realiza algunas pruebas para ver los datos aquí.
+        </div>
+    `;
+}
+                return;
+            }
+                
+                if (history.length > 0) {
+                    if (recentTestsContainer) {
+    recentTestsContainer.innerHTML = `
+        <h3>Detalles del último test</h3>
+        ${history[0].answer_breakdown ? history[0].answer_breakdown : ''}
+        ${history[0].formula_details ? history[0].formula_details : ''}
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Ruta</th>
+                    <th>Respuestas</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${history.slice(0, 10).map(test => `
+                    <tr>
+                        <td>${new Date(test.created_at).toLocaleString('es-ES')}</td>
+                        <td>${(() => {
+                            try {
+                                const routes = test.topRoutes || [];
+                                return routes.map(r => r.route).join(', ') || 'N/A';
+                            } catch (e) {
+                                console.error('Error parsing routes:', e);
+                                return 'N/A';
+                            }
+                        })()}</td>
+                        <td>
+                            <div style="padding: 10px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <div style="font-family: monospace; font-size: 14px;">
+                                    ${(() => {
+                                        try {
+                                            return test.answers || test.answers === '' ? test.answers : 'N/A';
+                                        } catch (e) {
+                                            console.error('Error parsing answers:', e);
+                                            return 'Error al cargar las respuestas';
+                                        }
+                                    })()}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+                } else {
+                    if (recentTestsContainer) {
+    recentTestsContainer.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Ruta</th>
+                    <th>Respuestas</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="3">No se han encontrado pruebas recientes.</td>
+                </tr>
+            </tbody>
+        </table>
+    `;
+}
+                }
+            }
+            
+            (async () => {
+                try {
+                    // Fetch test results
+                    testHistory = await fetchTestResults();
+                    console.log('Test history loaded:', testHistory);
+                    
+                    if (!testHistory || !Array.isArray(testHistory)) {
+                        throw new Error('No se pudieron cargar los resultados del test');
+                    }
+                    
+                    // Update the UI with the test history
+                    updateTestHistoryUI(testHistory);
+                    
+                    // Get current date for metrics
+                    const today = new Date().toISOString().split('T')[0];
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    const yesterdayStr = yesterday.toISOString().split('T')[0];
+                    
+                    // Calculate metrics
+                    const metrics = calculateMetrics(testHistory, today, yesterdayStr);
+                    
+                    // Update metrics display with calculated values
+                    document.getElementById('tests-today').textContent = metrics.testsToday;
+                document.getElementById('tests-yesterday').textContent = metrics.testsYesterday;
+                document.getElementById('tests-week').textContent = metrics.testsThisWeek;
+                document.getElementById('tests-month').textContent = metrics.testsThisMonth;
 
                 // Update basic stats
                 document.getElementById('total-tests').textContent = testHistory.length;
                 
-                // Find most common route
-                const routeCounts = {};
-                let validTests = 0;
-                
-                for (const test of testHistory) {
-                    try {
-                        let mainRoute = 'Desconocido';
-                        
-                        // First try to get route from topRoutes if available
-                        if (test.topRoutes && test.topRoutes.length > 0) {
-                            mainRoute = test.topRoutes[0].route || 'Desconocido';
-                        } 
-                        // Fall back to parsing the result HTML
-                        else if (test.result) {
-                            try {
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = test.result;
-                                
-                                // Find the route div (the one that comes after the title)
-                                const routeDiv = tempDiv.querySelector('div[style*="font-weight: bold"]');
-                                if (routeDiv) {
-                                    mainRoute = routeDiv.textContent.trim();
-                                }
-                                
-                                // Clean up any HTML tags or special characters
-                                mainRoute = mainRoute
-                                    .replace(/<[^>]*>?/gm, '')
-                                    .replace(/&[a-z]+;/g, '')
-                                    .trim();
-                            } catch (e) {
-                                console.warn('Error parsing test result HTML:', e);
-                            }
-                        }
-                        
-                        if (!mainRoute || mainRoute === '') {
-                            mainRoute = 'Desconocido';
-                        }
-                        
-                        routeCounts[mainRoute] = (routeCounts[mainRoute] || 0) + 1;
-                        validTests++;
-                    } catch (e) {
-                        console.error('Error processing test result:', e, test);
-                        routeCounts['Error en datos'] = (routeCounts['Error en datos'] || 0) + 1;
-                    }
-                }
-                
-                console.log('Route counts:', routeCounts);
-                console.log('Valid tests processed:', validTests, 'out of', testHistory.length);
-                
-                const mostCommonRoute = Object.entries(routeCounts)
-                    .sort((a, b) => b[1] - a[1])[0];
+                // Find most common route for display
+                if (testHistory.length > 0) {
+                    const routeCounts = testHistory.reduce((acc, test) => {
+                        const routes = Array.isArray(test.topRoutes) ? test.topRoutes : [];
+                        routes.forEach(route => {
+                            if (route) acc[route] = (acc[route] || 0) + 1;
+                        });
+                        return acc;
+                    }, {});
                     
-                if (mostCommonRoute) {
-                    document.getElementById('top-route').textContent = 
-                        `${mostCommonRoute[0]} (${mostCommonRoute[1]} pruebas)`;
-                }
-
-                // Format and show last test date
-                const lastTest = testHistory[0]; // Results are ordered by date desc
-                console.log('Last test data:', lastTest);
-                if (lastTest) {
-                    try {
-                        // Try to use the date field first, then fall back to created_at
-                        const dateStr = lastTest.date || lastTest.created_at;
-                        console.log('Date string:', dateStr);
+                    const mostCommonRoute = Object.entries(routeCounts)
+                        .sort((a, b) => b[1] - a[1])[0];
                         
-                        if (dateStr) {
-                            const date = new Date(dateStr);
-                            if (!isNaN(date.getTime())) {
-                                document.getElementById('last-test').textContent = 
-                                    date.toLocaleDateString('es-ES', {
-                                        year: 'numeric',
-                                        month: 'long',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    });
-                                console.log('Formatted date:', document.getElementById('last-test').textContent);
-                            } else {
-                                console.warn('Invalid date:', dateStr);
-                                document.getElementById('last-test').textContent = 'Fecha no disponible';
-                            }
+                    if (mostCommonRoute) {
+                        document.getElementById('top-route').textContent = 
+                            `${mostCommonRoute[0]} (${mostCommonRoute[1]} pruebas)`;
+                    }
+                    
+                    // Set last test date
+                    const lastTest = testHistory[0];
+                    try {
+                        const date = new Date(lastTest.date || lastTest.created_at);
+                        if (!isNaN(date.getTime())) {
+                            document.getElementById('last-test').textContent = 
+                                date.toLocaleDateString('es-ES', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
                         } else {
-                            console.warn('No date found in test result');
                             document.getElementById('last-test').textContent = 'Fecha no disponible';
                         }
                     } catch (e) {
                         console.error('Error formatting date:', e);
                         document.getElementById('last-test').textContent = 'Error en fecha';
                     }
-                } else {
-                    console.warn('No test history available');
-                    document.getElementById('last-test').textContent = 'No disponible';
                 }
-
-                // Prepare data for chart
-                const routesData = {};
                 
-                // Convert routeCounts to chart data format
-                const routes = Object.entries(routeCounts)
+                // Prepare data for the chart
+                const routeCounts = {};
+                testHistory.forEach(test => {
+                    const routes = Array.isArray(test.topRoutes) ? test.topRoutes : [];
+                    routes.forEach(route => {
+                        if (route) {  // Only count non-null/undefined routes
+                            routeCounts[route] = (routeCounts[route] || 0) + 1;
+                        }
+                    });
+                    
+                    // Also check the result field for routes if topRoutes is empty
+                    if (routes.length === 0 && test.result) {
+                        const match = test.result.match(/Las rutas que más se ajustan a tu perfil son: ([^<]+)/);
+                        if (match && match[1]) {
+                            const routeNames = match[1].split(',').map(r => r.trim()).filter(Boolean);
+                            routeNames.forEach(route => {
+                                if (route) {
+                                    routeCounts[route] = (routeCounts[route] || 0) + 1;
+                                }
+                            });
+                        }
+                    }
+                });
+                
+                // Sort routes by count (descending) and get top 10
+                const sortedRoutes = Object.entries(routeCounts)
+                    .filter(([route]) => route && route.trim() !== '')
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 10); // Limit to top 10 routes
                 
-                const labels = routes.map(([route]) => route);
-                const data = routes.map(([_, count]) => count);
+                const labels = sortedRoutes.map(([route]) => route || 'Sin ruta');
+                const data = sortedRoutes.map(([_, count]) => count);
+                
+                // If no routes found, show a message
+                if (labels.length === 0) {
+                    const chartContainer = document.getElementById('chart-container');
+                    if (chartContainer) {
+                        chartContainer.innerHTML = '<p class="no-data">No hay suficientes datos para mostrar el gráfico de rutas.</p>';
+                    } else {
+                        console.error('Elemento chart-container no encontrado.');
+                    }
+                    return;
+                }
                 
                 // Create chart
                 const ctx = document.getElementById('routesChart').getContext('2d');
@@ -466,16 +676,21 @@ const questions = [
                 });
                 
                 // Show recent tests
-                const recentTestsContainer = document.getElementById('recent-tests-container');
                 if (testHistory.length > 0) {
                     recentTestsContainer.innerHTML = `
+                        <h3>Detalles del último test</h3>
+                        
+                        <!-- Add the formula details and answer breakdown from the most recent test -->
+                        ${testHistory[0].answer_breakdown ? testHistory[0].answer_breakdown : ''}
+                        ${testHistory[0].formula_details ? testHistory[0].formula_details : ''}
+                        
+                        <h3>Historial de pruebas</h3>
                         <table>
                             <thead>
                                 <tr>
                                     <th>Fecha</th>
                                     <th>Ruta</th>
                                     <th>Patrón de respuestas</th>
-                                    <th>Desglose de respuestas</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -586,20 +801,36 @@ const questions = [
                 }
             } catch (error) {
                 console.error('Error loading dashboard data:', error);
-                // Replace error message with test results breakdown
-                document.querySelector('.no-data').innerHTML = `
-                    <div style="margin-top: 30px; padding: 15px; background-color: rgb(248, 249, 250); border-radius: 8px; border: 1px solid rgb(222, 226, 230); text-align: left;">
-                        <h4 style="margin-bottom: 10px; color: rgb(73, 80, 87); text-align: left;">Desglose de respuestas:</h4>
-                        <div style="font-family: monospace; font-size: 16px; text-align: left;">A3, B6, C2, D1</div>
-                        <div style="margin-top: 10px; font-family: monospace; font-size: 14px; text-align: left;">Puntuaciones por ruta: Diseño de contenido: 3 | Marketing en redes: 1 | Manejo de proyectos: 2 | IA: 1 | Software: 1 | Ciberseguridad: 1 | Creatividad e innovación: 1 | Desarrollo de software: 1 | Videojuegos: 1 | Marketing: 1 | Ventas: 1 | Contabilidad: 2 | Programación: 1 | Análisis de datos: 1 | Proyectos: 1</div>
-                    </div>
-                `;
+                // Show error message to user
+                const errorContainer = document.querySelector('.no-data');
+                if (errorContainer) {
+                    errorContainer.innerHTML = `
+                        <div class="error-message">
+                            <h3>Error al cargar los datos</h3>
+                            <p>${error.message || 'Ha ocurrido un error inesperado'}</p>
+                            <p>Por favor, intenta recargar la página o contacta al soporte técnico.</p>
+                        </div>
+                        <div style="margin-top: 30px; padding: 15px; background-color: rgb(248, 249, 250); border-radius: 8px; border: 1px solid rgb(222, 226, 230); text-align: left;">
+                            <h4 style="margin-bottom: 10px; color: rgb(73, 80, 87); text-align: left;">Desglose de respuestas:</h4>
+                            <div style="font-family: monospace; font-size: 16px; text-align: left;">A3, B6, C2, D1</div>
+                            <div style="margin-top: 10px; font-family: monospace; font-size: 14px; text-align: left;">Puntuaciones por ruta: Diseño de contenido: 3 | Marketing en redes: 1 | Manejo de proyectos: 2 | IA: 1 | Software: 1 | Ciberseguridad: 1 | Creatividad e innovación: 1 | Desarrollo de software: 1 | Videojuegos: 1 | Marketing: 1 | Ventas: 1 | Contabilidad: 2 | Programación: 1 | Análisis de datos: 1 | Proyectos: 1</div>
+                    `;
+                }
             }
-            for (const test of testHistory) {
-                const mainPart = test.result.split(':')[1] || test.result; // Fallback to full result if no colon
-                const route = (mainPart.includes('.') ? mainPart.split('.')[0] : mainPart).trim();
-                if (!route) continue; // Skip if we end up with an empty route
-                routesData[route] = (routesData[route] || 0) + 1;
+            // Initialize routesData object
+            const routesData = {};
+            
+            // Process routes data for the chart
+            if (testHistory && Array.isArray(testHistory)) {
+                testHistory.forEach(test => {
+                    if (test && test.result) {
+                        const mainPart = test.result.split(':')[1] || test.result; // Fallback to full result if no colon
+                        const route = (mainPart.includes('.') ? mainPart.split('.')[0] : mainPart).trim();
+                        if (route) { // Only process if we have a valid route
+                            routesData[route] = (routesData[route] || 0) + 1;
+                        }
+                    }
+                });
             }
 
             // Create chart with consistent brand colors
@@ -684,60 +915,188 @@ const questions = [
                 }
             });
 
-            // Show recent tests
-            const recentTestsContainer = document.getElementById('recent-tests-container');
-            if (testHistory.length > 0) {
-                recentTestsContainer.innerHTML = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Resultado</th>
-                                <th>Respuestas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${testHistory.slice().reverse().map(test => {
-                                // Extract the main route from the result
-                                let mainRoute = 'Desconocido';
-                                if (test.topRoutes && test.topRoutes.length > 0) {
-                                    mainRoute = test.topRoutes[0].route || 'Desconocido';
-                                } else if (test.result) {
-                                    const tempDiv = document.createElement('div');
-                                    tempDiv.innerHTML = test.result;
-                                    const routeDiv = tempDiv.querySelector('div[style*="font-weight: bold"]');
-                                    if (routeDiv) {
-                                        mainRoute = routeDiv.textContent.trim()
-                                            .replace(/<[^>]*>?/gm, '')
-                                            .replace(/&[a-z]+;/g, '')
-                                            .trim();
-                                    }
-                                }
-                                
-                                // Format answers if available
-                                let answersDisplay = 'N/A';
-                                if (test.answers && Object.keys(test.answers).length > 0) {
-                                    answersDisplay = Object.values(test.answers)
-                                        .map((ans, i) => `<span class="answer" title="Pregunta ${i+1}">${ans}</span>`)
-                                        .join(' ');
-                                } else if (test.answers) {
-                                    // Handle case where answers is an array or other format
-                                    answersDisplay = JSON.stringify(test.answers);
-                                }
-                                
-                                return `
-                                    <tr>
-                                        <td>${new Date(test.date).toLocaleString('es-ES')}</td>
-                                        <td>${mainRoute}</td>
-                                        <td class="answer-pattern">${answersDisplay}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                `;
+            // Initialize charts
+            // initCharts(); // Removed: no such function, Chart.js handles charts directly
+            
+            try {
+                // Get date strings for metrics
+                const today = new Date();
+                const todayStr = today.toISOString().split('T')[0];
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
+                
+                // Get DOM elements
+                const recentTestsContainer = document.getElementById('recent-tests-container');
+                
+                // Fetch test results
+                const testHistory = await fetchTestResults();
+                console.log('Test history loaded:', testHistory);
+                
+                if (!testHistory || !Array.isArray(testHistory)) {
+                    throw new Error('No se pudieron cargar los resultados del test');
+                }
+                
+                // Update the UI with the test history
+                updateTestHistoryUI(testHistory);
+                
+                // Calculate metrics
+                const metrics = calculateMetrics(testHistory, today, yesterdayStr);
+                
+                // Update metrics display with calculated values
+                document.getElementById('tests-today').textContent = metrics.testsToday;
+                document.getElementById('tests-yesterday').textContent = metrics.testsYesterday;
+                document.getElementById('tests-week').textContent = metrics.testsThisWeek;
+                document.getElementById('tests-month').textContent = metrics.testsThisMonth;
+        
+                // Update basic stats
+                document.getElementById('total-tests').textContent = testHistory.length;
+                
+                // Find most common route for display
+                if (testHistory.length > 0) {
+                    const routeCounts = testHistory.reduce((acc, test) => {
+                        const routes = Array.isArray(test.topRoutes) ? test.topRoutes : [];
+                        routes.forEach(route => {
+                            if (route) acc[route] = (acc[route] || 0) + 1;
+                        });
+                        return acc;
+                    }, {});
+                    
+                    const mostCommonRoute = Object.entries(routeCounts).sort((a, b) => b[1] - a[1])[0];
+                    if (mostCommonRoute) {
+                        document.getElementById('most-common-route').textContent = mostCommonRoute[0];
+                    }
+                }
+                
+                // Prepare data for charts
+                const routeData = {};
+                const dateData = {};
+                // Reuse the existing 'today' variable from above
+                const last7Days = Array.from({ length: 7 }, (_, i) => {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() - i);
+                    return d.toISOString().split('T')[0];
+                }).reverse();
+                
+                testHistory.forEach(test => {
+                    const testDate = new Date(test.date || test.created_at).toISOString().split('T')[0];
+                    const routes = Array.isArray(test.topRoutes) ? test.topRoutes : [];
+                    
+                    // Count routes
+                    routes.forEach(route => {
+                        if (route) routeData[route] = (routeData[route] || 0) + 1;
+                    });
+                    
+                    // Count tests by date
+                    if (testDate) {
+                        dateData[testDate] = (dateData[testDate] || 0) + 1;
+                    }
+                });
+                
+                // Sort routes by count
+                const sortedRoutes = Object.entries(routeData)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5); // Top 5 routes
+                
+                // Prepare chart data
+                const routeLabels = sortedRoutes.map(([route]) => route);
+                const routeCounts = sortedRoutes.map(([_, count]) => count);
+                
+                const dateLabels = last7Days;
+                const dateCounts = last7Days.map(date => dateData[date] || 0);
+                
+                // Create or update charts
+                updateRouteChart(routeLabels, routeCounts);
+                updateDateChart(dateLabels, dateCounts);
+                
+                // Update recent tests table
+                updateRecentTestsTable(testHistory);
+                
+                // Update recent tests table
+                const recentTestsHtml = testHistory.map(test => {
+                    const date = new Date(test.date).toLocaleString('es-ES');
+                    const mainRoute = test.result ? test.result.split(':')[0] : 'Desconocido';
+                    const answers = test.answers || [];
+                    const answersDisplay = Array.isArray(answers) 
+                        ? answers.map(a => a.option || a).join(', ')
+                        : JSON.stringify(answers);
+                    
+                    return `
+                        <tr>
+                            <td>${date}</td>
+                            <td>${mainRoute}</td>
+                            <td class="answer-pattern">${answersDisplay}</td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                if (recentTestsContainer) {
+                    recentTestsContainer.innerHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Ruta principal</th>
+                                    <th>Respuestas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${recentTestsHtml || '<tr><td colspan="3">No hay pruebas recientes</td></tr>'}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                // Show error message to user
+                const errorContainer = document.querySelector('.no-data');
+                if (errorContainer) {
+                    errorContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h3>Error al cargar los datos del tablero</h3>
+                            <p>Error al cargar los datos del tablero: ${error.message}</p>
+                        </div>
+                    `;
+                }
             }
-        });
+        })();
+        
+        // Function to update the test history UI
+        function updateTestHistoryUI(testHistory) {
+            // TO DO: implement this function
+        }
+        
+        // Function to calculate metrics
+        function calculateMetrics(testHistory, today, yesterdayStr) {
+            // TO DO: implement this function
+            return {
+                testsToday: 0,
+                testsYesterday: 0,
+                testsThisWeek: 0,
+                testsThisMonth: 0
+            };
+        }
+        
+        // Function to update the route chart
+        function updateRouteChart(routeLabels, routeCounts) {
+            // TO DO: implement this function
+        }
+        
+        // Function to update the date chart
+        function updateDateChart(dateLabels, dateCounts) {
+            // TO DO: implement this function
+        }
+        
+        // Function to update the recent tests table
+        function updateRecentTestsTable(testHistory) {
+            // TO DO: implement this function
+        }
+        
+        // Function to fetch test results
+        async function fetchTestResults() {
+            // TO DO: implement this function
+            return [];
+        }
     </script>
 </body>
 </html>

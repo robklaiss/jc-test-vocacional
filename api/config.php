@@ -17,10 +17,27 @@ try {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         result TEXT NOT NULL,
         answers TEXT NOT NULL,
+        full_answers TEXT,
+        top_routes TEXT,
+        test_date DATETIME,
         ip_address TEXT,
         user_agent TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
+    
+    // Add any missing columns if they don't exist
+    $db->exec("PRAGMA table_info(test_results)");
+    $columns = $db->query("PRAGMA table_info(test_results)")->fetchAll(PDO::FETCH_COLUMN, 1);
+    
+    if (!in_array('full_answers', $columns)) {
+        $db->exec("ALTER TABLE test_results ADD COLUMN full_answers TEXT");
+    }
+    if (!in_array('top_routes', $columns)) {
+        $db->exec("ALTER TABLE test_results ADD COLUMN top_routes TEXT");
+    }
+    if (!in_array('test_date', $columns)) {
+        $db->exec("ALTER TABLE test_results ADD COLUMN test_date DATETIME");
+    }
     
     // Create test_states table if it doesn't exist
     $db->exec("CREATE TABLE IF NOT EXISTS test_states (
