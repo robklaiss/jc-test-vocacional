@@ -435,7 +435,39 @@
             console.log('Updating dashboard with', testHistory.length, 'test results');
             
             // Update metrics
-            document.getElementById('total-tests').textContent = testHistory.length;
+            // Count completed tests accurately
+            // Group by session_id and find the most complete entry for each session
+            const sessionGroups = {};
+            testHistory.forEach(test => {
+                const sessionId = test.session_id;
+                if (!sessionGroups[sessionId]) {
+                    sessionGroups[sessionId] = [];
+                }
+                sessionGroups[sessionId].push(test);
+            });
+            
+            // Count sessions with completed tests
+            let completedTestCount = 0;
+            Object.values(sessionGroups).forEach(sessions => {
+                // Sort by answer length (most complete first)
+                sessions.sort((a, b) => {
+                    const aAnswers = Array.isArray(a.answers) ? a.answers.filter(ans => ans !== '').length : 0;
+                    const bAnswers = Array.isArray(b.answers) ? b.answers.filter(ans => ans !== '').length : 0;
+                    return bAnswers - aAnswers;
+                });
+                
+                // Get the most complete test for this session
+                const mostComplete = sessions[0];
+                
+                // Check if it has enough answers to be considered complete (at least 10 questions answered)
+                if (mostComplete && mostComplete.answers && 
+                    Array.isArray(mostComplete.answers) && 
+                    mostComplete.answers.filter(ans => ans !== '').length >= 10) {
+                    completedTestCount++;
+                }
+            });
+            
+            document.getElementById('total-tests').textContent = completedTestCount;
             
             if (testHistory.length > 0) {
                 const latestTest = testHistory[0];
