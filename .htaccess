@@ -1,0 +1,27 @@
+# Protect sensitive files
+<Files "mysql.config.js">
+  Order allow,deny
+  Deny from all
+</Files>
+
+<Files "*.config.js">
+  Order allow,deny
+  Deny from all
+</Files>
+
+# Enable CORS
+<IfModule mod_headers.c>
+  Header set Access-Control-Allow-Origin "*"
+  Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+  Header set Access-Control-Allow-Headers "Content-Type"
+</IfModule>
+
+# Handle PHP API requests
+RewriteEngine On
+RewriteRule ^api/(.*)$ api/$1 [L]
+
+# Redirect dashboard requests
+RewriteRule ^dashboard$ dashboard.html [L]
+
+# Error handling
+ErrorDocument 404 /index.html

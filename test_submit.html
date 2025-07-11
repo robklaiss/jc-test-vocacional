@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Submission</title>
+    <script>
+        async function submitTest() {
+            const testResult = {
+                result: 'Test Result ' + new Date().toISOString(),
+                answers: ['A1', 'B2', 'C3'],
+                full_answers: [
+                    { question: 'Q1', answer: 'A1' },
+                    { question: 'Q2', answer: 'B2' },
+                    { question: 'Q3', answer: 'C3' }
+                ],
+                top_routes: ['Route A', 'Route B', 'Route C'],
+                test_date: new Date().toISOString()
+            };
+
+            try {
+                const response = await fetch('api/save_result.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testResult)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    document.getElementById('result').innerHTML = `
+                        <p>Test submitted successfully!</p>
+                        <p>ID: ${result.id}</p>
+                        <p>Message: ${result.message}</p>
+                    `;
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <p>Error: ${error.message}</p>
+                    <pre>${error.stack}</pre>
+                `;
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Test Submission</h1>
+    <button onclick="submitTest()">Submit Test Result</button>
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+</body>
+</html>

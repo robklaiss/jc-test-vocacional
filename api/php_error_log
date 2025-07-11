@@ -1,0 +1,5 @@
+[04-Jul-2025 04:35:21 UTC] Error getting analytics summary: SQLSTATE[HY000]: General error: 1 ambiguous column name: created_at
+[04-Jul-2025 04:35:27 UTC] Error getting analytics summary: SQLSTATE[HY000]: General error: 1 ambiguous column name: created_at
+[04-Jul-2025 04:35:36 UTC] Error getting analytics summary: SQLSTATE[HY000]: General error: 1 ambiguous column name: created_at
+[04-Jul-2025 04:36:12 UTC] Error getting analytics summary: SQLSTATE[HY000]: General error: 1 ambiguous column name: created_at
+[04-Jul-2025 04:36:13 UTC] Error getting analytics summary: SQLSTATE[HY000]: General error: 1 ambiguous column name: created_at

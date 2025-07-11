@@ -591,6 +591,14 @@
         
         // Function to start the test
         async function startTest(isRestoring = false) {
+            // Track test start if analytics is loaded
+            if (!isRestoring && typeof trackTestStart === 'function') {
+                try {
+                    await trackTestStart(questions.length);
+                } catch (e) {
+                    console.warn('Failed to track test start:', e);
+                }
+            }
             console.log('Starting test...', isRestoring ? '(restoring from saved state)' : '');
             
             try {
@@ -1200,7 +1208,7 @@ function setupStartButton() {
                 };
 
                 // Send data to the PHP API
-                const response = await fetch('/api/save_result.php', {
+                const response = await fetch('api/save_result.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1267,6 +1275,14 @@ showResult(true); // Show result screen after saving
         
         // Define showQuestion function before using it in debounce
         async function showQuestion(isRestoring = false) {
+            // Track question progress if analytics is loaded
+            if (!isRestoring && current > 0 && typeof trackTestProgress === 'function') {
+                try {
+                    await trackTestProgress(current, questions.length);
+                } catch (e) {
+                    console.warn('Failed to track question progress:', e);
+                }
+            }
             // Always get the chatBox element fresh
             const chatBox = document.getElementById('chat-box');
             // Use requestAnimationFrame for smoother animations
@@ -1459,6 +1475,20 @@ console.log('[DEBUG] chatBox.innerHTML after render:', chatBox.innerHTML);
         }
 
         async function showResult(fromSaveResult = false) {
+            // Track test completion if analytics is loaded
+            const startTime = performance.now();
+            const testTime = Math.round((performance.now() - startTime) / 1000); // in seconds
+            
+            if (typeof trackTestCompletion === 'function') {
+                try {
+                    await trackTestCompletion({
+                        routes: topRoutes,
+                        answers: getFullAnswers()
+                    }, testTime);
+                } catch (e) {
+                    console.warn('Failed to track test completion:', e);
+                }
+            }
     // Patch: Use backup if state is empty and fromSaveResult is true
     if (fromSaveResult && (!scores || Object.keys(scores).length === 0) && window._lastScores) {
         console.log('[DEBUG] showResult using backup scores/answerPattern');
@@ -1548,7 +1578,7 @@ console.log('[DEBUG] chatBox.innerHTML after render:', chatBox.innerHTML);
             const routeName = document.createElement('div');
             // Ensure we're setting text content, not HTML
             routeName.textContent = topRoute.replace(/<[^>]*>?/gm, '');
-            routeName.style.fontSize = '40px';
+            routeName.style.fontSize = '28px';
             routeName.style.fontWeight = 'bold';
             routeName.style.color = '#2c3e50';
             routeName.style.marginBottom = '30px'; // Keep bottom margin for separation from next section
@@ -1570,6 +1600,7 @@ console.log('[DEBUG] chatBox.innerHTML after render:', chatBox.innerHTML);
                 
                 const secondaryRoute = document.createElement('div');
                 secondaryRoute.style.fontWeight = 'bold';
+                secondaryRoute.style.fontSize = '28px';
                 // Clean any HTML tags from the secondary route
                 // Get the secondary route and clean any HTML tags
                 const secondaryRouteName = Array.isArray(sorted) && sorted[1] && sorted[1][0] 
@@ -1818,7 +1849,6 @@ console.log('[DEBUG] chatBox.innerHTML after render:', chatBox.innerHTML);
             
             // Assemble the result
             resultDiv.appendChild(mainTitle);
-            resultDiv.appendChild(document.createElement('hr'));
             resultDiv.appendChild(resultSection);
             
             // Add secondary section if it exists
@@ -2039,10 +2069,7 @@ console.log('[DEBUG] chatBox.innerHTML after render:', chatBox.innerHTML);
                 if (topRoutes.length > 1) {
                     resultHTML += `
                         <div style="margin: 10px 0 5px;">
-                            <div style="margin-bottom: 2px; font-size: 20px;">También podrías explorar:</div>
-                            <div style="font-weight: bold; font-size: 22px; color: #2c3e50;">
-                                ${topRoutes[1]?.route || ''}
-                            </div>
+                            <div style="margin-top: 12px;"><div class="normal-text" style="font-size: 18px; margin-bottom: 4px;">También podrías explorar:</div><div style="font-weight: bold; font-size: 20px;">${topRoutes[1]?.route || ''}</div></div>
                         </div>
                     `;
                 }
@@ -2649,6 +2676,77 @@ function getTopRoutes(count = 1) {
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
 });
+</script>
+<!-- Analytics Module -->
+<script type="module" src="assets/js/analytics.js"></script>
+
+<script type="module">
+// Import analytics functions
+let trackTestStart, trackTestProgress, trackTestCompletion;
+
+// Dynamically import analytics functions
+import('./assets/js/analytics.js')
+    .then(module => {
+        trackTestStart = module.trackTestStart;
+        trackTestProgress = module.trackTestProgress;
+        trackTestCompletion = module.trackTestCompletion;
+    })
+    .catch(err => console.error('Failed to load analytics module:', err));
+
+import { saveSessionToDb, loadSessionFromDb } from './assets/js/db_sessions.js';
+
+// Utility: Generate or retrieve a unique session ID for this user/test
+function getSessionId() {
+    let sid = localStorage.getItem('SESSION_ID');
+    if (!sid) {
+        sid = 'jc_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        localStorage.setItem('SESSION_ID', sid);
+    }
+    return sid;
+}
+
+// --- PATCH saveTestState for dual-write (localStorage + DB) ---
+const _orig_saveTestState = saveTestState;
+saveTestState = function() {
+    const result = _orig_saveTestState.apply(this, arguments);
+    try {
+        const state = {
+            current,
+            answerPattern,
+            scores,
+            timestamp: Date.now()
+        };
+        const sid = getSessionId();
+        saveSessionToDb(sid, state).then(success => {
+            if (!success) {
+                console.warn('Session NOT saved to DB, fallback to localStorage only');
+            }
+        });
+    } catch (e) {
+        console.warn('DB session save failed:', e);
+    }
+    return result;
+};
+
+// --- PATCH getTestState for DB-first fallback ---
+const _orig_getTestState = getTestState;
+getTestState = async function() {
+    try {
+        const sid = getSessionId();
+        const dbState = await loadSessionFromDb(sid);
+        if (dbState && typeof dbState.current === 'number' && Array.isArray(dbState.answerPattern)) {
+            current = dbState.current;
+            answerPattern = dbState.answerPattern;
+            scores = dbState.scores || {};
+            console.log('Test state restored from DB session:', dbState);
+            return true;
+        }
+    } catch (e) {
+        console.warn('DB session load failed, fallback to localStorage:', e);
+    }
+    // fallback to original localStorage/cookie logic
+    return _orig_getTestState.apply(this, arguments);
+};
 </script>
 </body>
 </html>

@@ -1,0 +1,2752 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Orientación Vocacional</title>
+    <link rel="icon" type="image/png" href="jovenes-conectados-favicon.png">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 25px 0 0 0;
+            padding: 0;
+            background: url('jc-fondo.avif') no-repeat center top / cover;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+        }
+        
+        #chat-container {
+            width: 85%;
+            max-width: 100%;
+            margin: 20px auto 0;
+            padding: 20px 0 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* Fix for flex children */
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            height: auto !important;
+        }
+        
+        #result {
+            position: relative;
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none; /* Hide results by default */
+        }
+        
+        #chat-container {
+            position: relative;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            left: calc(100% + 25px);
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            background: #2c3e50;
+            border: 2px solid white;
+            z-index: 1000;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            padding: 0;
+            margin: 0;
+            line-height: 1;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .close-btn:hover {
+            background-color: #e74c3c;
+            transform: scale(1.1)
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            #chat-container {
+                padding: 20px 15px 15px !important;
+                width: calc(100% - 30px);
+                margin: 20px 15px 0;
+            }
+            
+            .close-btn {
+                left: auto;
+                right: 15px;
+                top: 15px;
+                background: rgba(44, 62, 80, 0.9);
+            }
+        }
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .loader-logo {
+            width: 150px;
+            height: auto;
+            margin-bottom: 20px;
+        }
+        .loader-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #001EB4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        #chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            margin-bottom: 0;
+            background: white;
+            min-height: 0; /* Fix for flex children */
+        }
+        /* Chat header styles */
+        #chat-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 20px;
+            margin-bottom: 0px;
+            padding: 15px 0;
+            width: 100%;
+            border-bottom: none;
+        }
+        #chat-header img {
+            height: 40px;
+            width: auto;
+            margin: 0 auto;
+        }
+        #chat-header span {
+            font-weight: bold;
+            color: #00005A;
+        }
+
+        /* Desktop styles */
+        @media (min-width: 768px) {
+            #chat-header {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 0 15px 0;
+            }
+            #chat-header img {
+                margin: 0;
+                align-self: center;
+            }
+            #chat-container {
+                width: 100%;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                height: auto;
+            }
+        }
+
+        #start-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 10px 20px 40px;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+        #start-screen h1 {
+            color: #00005A;
+            font-size: 2em;
+            margin: 0 0 10px 0; /* Reset top margin */
+        }
+        #start-screen p {
+            color: #333;
+            line-height: 1.3;
+            margin: 0 0 30px 0; /* Reset top margin */
+        }
+        button {
+            background-color: #001EB4;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #00188f;
+        }
+        .hidden {
+            display: none !important;
+        }
+        #progress-bar-container {
+            width: 100%;
+            background-color: #f0f0f0;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        #progress-bar {
+            height: 10px;
+            background-color: #009340;
+            width: 0;
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .option-btn {
+            padding: 15px 20px;
+            height: auto;
+            min-height: 55px;
+            box-sizing: border-box;
+            background-color: #001EB4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            line-height: 1.4;
+        }
+        .option-btn:hover {
+            background-color: #00188f;
+        }
+        
+        .message.bot {
+            margin-bottom: 20px;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 24px;
+            text-align: center;
+            display: none; /* Hide results by default */
+        }
+        #restart-btn {
+            display: block;
+            margin: 40px auto 0;
+            padding: 12px 24px;
+            background-color: white;
+            color: #001EB4;
+            border: 1.5px solid #CCCCCC;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        #restart-btn:hover {
+            background-color: #009340;
+            color: white;
+            border-color: #009340;
+        }
+        @media (max-width: 600px) {
+            #chat-container {
+                margin: 0 auto;
+                padding: 15px;
+            }
+        }
+        
+        /* Animation for reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            .loader-spinner {
+                animation: none;
+                border: 4px solid #001EB4;
+            }
+        }
+        </style>
+</head>
+<body>
+    <!-- Optimized loader with logo -->
+    <div id="loader" role="status" aria-live="polite">
+        <img src="jovenes-conectados-logo.png" 
+             alt="Jóvenes Conectados" 
+             class="loader-logo" 
+             width="200" 
+             height="200" 
+             loading="eager" 
+             decoding="async">
+        <div class="loader-spinner" aria-hidden="true"></div>
+        <span class="sr-only">Cargando aplicación...</span>
+    </div>
+
+    <div id="chat-container">
+        <div id="chat-header">
+            <img src="jovenes-conectados-logo.png" alt="Logo Jóvenes Conectados">
+            <span>Asistente de selección de ruta</span>
+        </div>
+
+        <div id="start-screen">
+            <img src="imagen-alumna.avif" alt="Estudiante" style="max-width: 180px; margin-bottom: 20px;">
+            <h1>Impulsá tu talento,<br>construí tu futuro</h1>
+            <p>Descubrí en qué sos bueno y qué te apasiona. Completá este test vocacional gratuito y recibí una recomendación de cursos de Coursera pensados especialmente para vos.</p>
+            <button id="start-button" class="option-btn" style="display: inline-block; padding: 15px 30px; font-size: 18px; cursor: pointer; text-align: center; text-decoration: none; outline: none; color: #fff; background-color: #0056D2; border: none; border-radius: 5px;">¡Empezar!</button>
+        </div>
+        
+        <div id="test-content" style="display: none;">
+            <div id="progress-bar-container">
+                <div id="progress-bar"></div>
+            </div>
+            <div id="chat-box"></div>
+            <div id="result" class="message bot" style="display: none; position: relative;">
+                <!-- Result content will be inserted here -->
+            </div>
+        </div>
+        <button id="result-close-btn" class="close-btn" onclick="window.location.href='https://vinculo.com.py/jovenes-conectados'" style="display: none;">&times;</button>
+    </div>
+
+    <div style="margin: 30px 0 0; text-align: center; width: 100%; max-width: 600px;">
+        <img src="auspiciantes.avif" alt="Auspiciantes" style="max-width: calc(100% - 50px); height: auto; display: block; margin: 0 25px 30px;">
+    </div>
+
+    <style>
+        #progress-bar-container {
+            width: 100%;
+            background-color: #f0f0f0;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            height: 10px;
+            background-color: #009340;
+            width: 0;
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+    </style>
+
+    <script>
+        // Global initialization flag to prevent multiple initializations
+        let isInitializing = false;
+        
+        // Global test state variables
+        let current = 0;
+        let scores = {};
+        let answerPattern = [];
+        
+        // Storage keys for consistent access
+        const STORAGE_KEYS = {
+            TEST_STATE: 'testState',
+            TEST_RESULT: 'testResult',
+            SESSION_ID: 'test_session_id',
+            COOKIE_PREFIX: 'jc_test_' // Prefix for all our cookies
+        };
+        
+        /**
+         * Check if there are saved results for the current user
+         * @returns {Promise<boolean>} - True if there are saved results
+         */
+        async function checkSavedResults() {
+            try {
+                // First try localStorage
+                if (checkLocalStorage()) {
+                    const savedResultRaw = localStorage.getItem(STORAGE_KEYS.TEST_RESULT);
+                    if (savedResultRaw) {
+                        try {
+                            const savedResult = JSON.parse(savedResultRaw);
+                            if (savedResult && savedResult.scores && Object.keys(savedResult.scores).length > 0 && Array.isArray(savedResult.answerPattern) && savedResult.answerPattern.some(x => x)) {
+                                return true;
+                            } else {
+                                console.warn('[checkSavedResults] Invalid or empty saved result found, clearing...');
+                                localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                            }
+                        } catch (err) {
+                            console.warn('[checkSavedResults] Corrupt saved result, clearing...', err);
+                            localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                        }
+                    }
+                }
+                // Then try cookies
+                const cookieResultRaw = getCookie('TEST_RESULT');
+                if (cookieResultRaw) {
+                    try {
+                        const cookieResult = JSON.parse(cookieResultRaw);
+                        if (cookieResult && cookieResult.scores && Object.keys(cookieResult.scores).length > 0 && Array.isArray(cookieResult.answerPattern) && cookieResult.answerPattern.some(x => x)) {
+                            return true;
+                        } else {
+                            console.warn('[checkSavedResults] Invalid or empty saved result in cookie, clearing...');
+                            deleteCookie('TEST_RESULT');
+                        }
+                    } catch (err) {
+                        console.warn('[checkSavedResults] Corrupt saved result in cookie, clearing...', err);
+                        deleteCookie('TEST_RESULT');
+                    }
+                }
+                return false;
+            } catch (e) {
+                console.error('Error checking saved results:', e);
+                return false;
+            }
+        }
+        
+        /**
+         * Get saved test result for the current user
+         * @returns {Promise<string|null>} - The saved result or null if no result is found
+         */
+        async function getSavedResult() {
+            try {
+                // First try localStorage
+                if (checkLocalStorage()) {
+                    const savedResultRaw = localStorage.getItem(STORAGE_KEYS.TEST_RESULT);
+                    if (savedResultRaw) {
+                        try {
+                            const savedResult = JSON.parse(savedResultRaw);
+                            if (savedResult && savedResult.scores && Object.keys(savedResult.scores).length > 0 && Array.isArray(savedResult.answerPattern) && savedResult.answerPattern.some(x => x)) {
+                                return savedResultRaw;
+                            } else {
+                                console.warn('[getSavedResult] Invalid or empty saved result found, clearing...');
+                                localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                            }
+                        } catch (err) {
+                            console.warn('[getSavedResult] Corrupt saved result, clearing...', err);
+                            localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                        }
+                    }
+                }
+                // Then try cookies
+                const cookieResultRaw = getCookie('TEST_RESULT');
+                if (cookieResultRaw) {
+                    try {
+                        const cookieResult = JSON.parse(cookieResultRaw);
+                        if (cookieResult && cookieResult.scores && Object.keys(cookieResult.scores).length > 0 && Array.isArray(cookieResult.answerPattern) && cookieResult.answerPattern.some(x => x)) {
+                            return cookieResultRaw;
+                        } else {
+                            console.warn('[getSavedResult] Invalid or empty saved result in cookie, clearing...');
+                            deleteCookie('TEST_RESULT');
+                        }
+                    } catch (err) {
+                        console.warn('[getSavedResult] Corrupt saved result in cookie, clearing...', err);
+                        deleteCookie('TEST_RESULT');
+                    }
+                }
+                return null;
+            } catch (e) {
+                console.error('Error getting saved result:', e);
+                return null;
+            }
+        }
+        
+        // Loader utility functions
+        
+        /**
+         * Hide the loader element
+         */
+        function hideLoader() {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.display = 'none';
+            }
+        }
+        
+        // Storage utility functions
+        
+        /**
+         * Check if localStorage is available and working
+         * @returns {boolean} - True if localStorage is available and working
+         */
+        function checkLocalStorage() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch (e) {
+                console.warn('localStorage not available:', e);
+                return false;
+            }
+        }
+        
+        // Cookie utility functions
+        function setCookie(name, value, days) {
+            let expires = '';
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = '; expires=' + date.toUTCString();
+            }
+            document.cookie = STORAGE_KEYS.COOKIE_PREFIX + name + '=' + encodeURIComponent(JSON.stringify(value)) + expires + '; path=/';
+        }
+        
+        function getCookie(name) {
+            const nameEQ = STORAGE_KEYS.COOKIE_PREFIX + name + '=';
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i].trim();
+                if (c.indexOf(nameEQ) === 0) {
+                    try {
+                        return JSON.parse(decodeURIComponent(c.substring(nameEQ.length, c.length)));
+                    } catch (e) {
+                        console.error('Error parsing cookie:', e);
+                        return null;
+                    }
+                }
+            }
+            return null;
+        }
+        
+        function deleteCookie(name) {
+            setCookie(name, '', -1); // Set expiration to past date to delete
+        }
+        
+        // Global error handler for unhandled Promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled Promise rejection:', event.reason);
+        });
+        
+        // Clear localStorage and sessionStorage if we detect a reload loop
+        const now = Date.now();
+        const lastInit = localStorage.getItem('lastInitTime');
+        const reloadCount = parseInt(localStorage.getItem('reloadCount') || '0');
+        
+        if (lastInit && (now - parseInt(lastInit) < 500)) {
+            // Increment reload counter only for very rapid reloads (less than 0.5s)
+            localStorage.setItem('reloadCount', (reloadCount + 1).toString());
+            
+            // Only clear if we've had 3 or more consecutive quick reloads
+            if (reloadCount >= 3) {
+                console.warn('Detected rapid reload loop, clearing all storage...');
+                localStorage.clear();
+                sessionStorage.clear();
+                // Add cache-busting parameter
+                if (!window.location.search.includes('nocache')) {
+                    window.location.replace(window.location.pathname + '?nocache=' + Math.random());
+                }
+            }
+        } else {
+            // Reset reload counter for normal timing between page loads
+            localStorage.setItem('reloadCount', '0');
+        }
+        
+        // Function to ensure the start screen is shown
+        function ensureStartScreenShown() {
+            console.log('ℹ️ No saved state or results found, showing start screen');
+            // If no saved state or result, ensure start screen is shown
+            const startScreen = document.getElementById('start-screen');
+            if (startScreen) {
+                startScreen.style.display = 'flex';
+                startScreen.style.opacity = '1';
+                startScreen.style.visibility = 'visible';
+            }
+            
+            // Reinitialize the start button
+            setupStartButton();
+            
+            return false;
+        }
+        
+        // Function to update the progress bar
+        function updateProgressBar() {
+            const progress = (current / questions.length) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+        
+        // Function to start the test
+        async function startTest(isRestoring = false) {
+            // Track test start if analytics is loaded
+            if (!isRestoring && typeof trackTestStart === 'function') {
+                try {
+                    await trackTestStart(questions.length);
+                } catch (e) {
+                    console.warn('Failed to track test start:', e);
+                }
+            }
+            console.log('Starting test...', isRestoring ? '(restoring from saved state)' : '');
+            
+            try {
+                // Hide start screen
+                const startScreen = document.getElementById('start-screen');
+                const testContent = document.getElementById('test-content');
+                
+                if (startScreen) startScreen.style.display = 'none';
+                if (testContent) testContent.style.display = 'block';
+                
+                // Only reset test state if NOT restoring from saved state
+                if (!isRestoring) {
+                    console.log('Initializing new test state - clearing previous state');
+                    // Force clear any existing state to ensure a fresh start
+                    clearTestState();
+                    
+                    current = 0;
+                    scores = {};
+                    answerPattern = Array(questions.length).fill('');
+                    
+                    // Show first question
+                    await showQuestion();
+                } else {
+                    console.log('Using restored test state, current question:', current);
+                    // For restored state, show the current question
+                    await showQuestion(true);
+                }
+                
+                console.log('Test started successfully');
+            } catch (error) {
+                console.error('Error starting test:', error);
+                alert('Hubo un error al iniciar el test. Por favor, intenta de nuevo.');
+            }
+        }
+        
+        // Function to set up the start button with direct event handling
+        // --- Utility: Clear test state (must be defined before setupStartButton!) ---
+function clearTestState() {
+    console.log('Clearing test state...');
+    // Reset global variables
+    current = 0;
+    scores = {};
+    answerPattern = Array(questions.length).fill('');
+    // Clear localStorage
+    if (checkLocalStorage()) {
+        localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+        localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+        localStorage.removeItem(STORAGE_KEYS.TEST_RESULT_TIMESTAMP);
+        localStorage.removeItem('testState'); // legacy
+        localStorage.removeItem('testResult'); // legacy
+        localStorage.removeItem('testHistory'); // legacy
+        localStorage.removeItem('currentQuestion'); // legacy
+        localStorage.removeItem('scores'); // legacy
+        localStorage.removeItem('answers'); // legacy
+        console.log('Cleared test state/results from localStorage');
+    }
+    // Clear cookies
+    deleteCookie('TEST_STATE');
+    deleteCookie('TEST_RESULT');
+    console.log('Cleared test state/results from cookies');
+    return true;
+}
+
+let _startButtonInitialized = false;
+function setupStartButton() {
+    if (_startButtonInitialized) return;
+    _startButtonInitialized = true;
+            console.log('Setting up start button...');
+            const button = document.getElementById('start-button');
+            
+            if (!button) {
+                console.error('Start button not found in DOM');
+                return false;
+            }
+            
+            // Remove any existing click handlers
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            
+            // Add new click handler
+            newButton.onclick = async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Start button clicked');
+                
+                try {
+                    // Clear any existing state
+                        clearTestState();
+                    
+                    // Start the test
+                    await startTest();
+                } catch (error) {
+                    console.error('Error starting test:', error);
+                    alert('Error al iniciar el test. Por favor, recarga la página.');
+                }
+            };
+            
+            // Make sure button is visible and enabled
+            newButton.style.display = 'inline-block';
+            newButton.disabled = false;
+            
+            console.log('Start button setup complete');
+            return true;
+        }
+        
+    // Function to show saved result
+    function showSavedResult(savedResult) {
+        console.log('[DEBUG] Showing saved result:', savedResult);
+        // Hide the start screen to prevent overlap
+        const startScreen = document.getElementById('start-screen');
+        if (startScreen) {
+            startScreen.style.display = 'none';
+            startScreen.style.visibility = 'hidden';
+            startScreen.style.opacity = '0';
+            console.log('[DEBUG] Hiding start screen to prevent overlap');
+        }
+        // Show test content/result
+        const resultBox = document.getElementById('result');
+        if (resultBox && typeof savedResult === 'string' && savedResult.includes('<')) {
+            const testContent = document.getElementById('test-content');
+            if (testContent) testContent.style.display = 'block';
+            resultBox.innerHTML = savedResult;
+            resultBox.style.display = 'block';
+            // Wire up restart button inside the injected HTML
+            const restartBtn = document.getElementById('restart-btn');
+            if (restartBtn) {
+                restartBtn.removeAttribute('href');
+                restartBtn.style.cursor = 'pointer';
+                restartBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    console.log('[DEBUG] 🔄 Restart button (saved result) clicked');
+                    restartTest();
+                    setTimeout(() => {
+                        window.location.href = 'jc_test_vocacional.html?restart=true&_t=' + Date.now();
+                    }, 50);
+                });
+            }
+        } else {
+            // Fallback: call showResult
+            showResult(false, savedResult);
+        }
+    }
+        
+        // Function to initialize the application
+        async function initApp() {
+            // Prevent multiple initializations
+            if (isInitializing) {
+                console.warn('Initialization already in progress, skipping...');
+                return;
+            }
+            
+            isInitializing = true;
+            console.log('Initializing app...');
+            
+            // Log current time for debugging
+            const currentTime = new Date().toISOString();
+            console.log('Current time:', currentTime);
+            
+            // Check if localStorage is available
+            const isLocalStorageAvailable = checkLocalStorage();
+            console.log('localStorage available:', isLocalStorageAvailable);
+            
+            // Detect and prevent reload loops
+            if (isLocalStorageAvailable) {
+                // Get the last initialization time
+                const lastInitTime = localStorage.getItem('lastInitTime');
+                const now = Date.now();
+                localStorage.setItem('lastInitTime', now);
+                
+                // Get reload counter
+                let reloadCounter = parseInt(localStorage.getItem('reloadCounter') || '0');
+                reloadCounter++;
+                localStorage.setItem('reloadCounter', reloadCounter);
+                
+                // If we've initialized more than 10 times in the last second, we're in a reload loop
+                // This is a much more conservative check to prevent false positives during normal question progression
+                if (lastInitTime && (now - parseInt(lastInitTime) < 1000) && reloadCounter > 10) {
+                    console.warn('Detected reload loop! Clearing localStorage and breaking the loop');
+                    localStorage.clear();
+                    // Add a random parameter to the URL to break cache
+                    const cleanUrl = window.location.href.split('?')[0];
+                    window.location.replace(cleanUrl + '?nocache=' + Math.random());
+                    return; // Stop execution
+                }
+                
+                // Reset counter after 5 seconds
+                setTimeout(() => {
+                    localStorage.setItem('reloadCounter', '0');
+                }, 5000);
+            }
+            
+            // Check for saved results and restore state if needed
+            // This will handle all state restoration logic
+            try {
+                console.log('Checking for saved results and test state...');
+                
+                // Check for both in-progress test state and saved results
+                let savedResultData = null;
+                let inProgressTestState = null;
+                let savedResultTimestamp = 0;
+                let testStateTimestamp = 0;
+                
+                // Check for saved results
+                if (checkLocalStorage()) {
+                    const savedResult = localStorage.getItem(STORAGE_KEYS.TEST_RESULT);
+                    if (savedResult) {
+                        savedResultData = savedResult;
+                        // Try to get saved result timestamp
+                        try {
+                            const savedStateStr = localStorage.getItem(STORAGE_KEYS.TEST_STATE);
+                            if (savedStateStr) {
+                                const savedState = JSON.parse(savedStateStr);
+                                savedResultTimestamp = savedState.timestamp || 0;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing saved result timestamp:', e);
+                        }
+                    }
+                }
+                
+                // Check for in-progress test state
+                if (checkLocalStorage()) {
+                    const stateStr = localStorage.getItem(STORAGE_KEYS.TEST_STATE);
+                    if (stateStr) {
+                        try {
+                            const state = JSON.parse(stateStr);
+                            if (state && typeof state.current === 'number' && Array.isArray(state.answerPattern)) {
+                                inProgressTestState = state;
+                                testStateTimestamp = state.timestamp || 0;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing test state:', e);
+                        }
+                    }
+                }
+                
+                console.log('Check results - Test in progress:', Boolean(inProgressTestState), 
+                          'Saved result exists:', Boolean(savedResultData),
+                          'Test timestamp:', testStateTimestamp,
+                          'Result timestamp:', savedResultTimestamp);
+                
+                // Prioritize in-progress test if it exists and is more recent than saved results
+                if (inProgressTestState && (!savedResultData || testStateTimestamp >= savedResultTimestamp)) {
+                    console.log('Found in-progress test, resuming test');
+                    // Restore state manually here
+                    current = inProgressTestState.current;
+                    answerPattern = inProgressTestState.answerPattern;
+                    scores = inProgressTestState.scores || {};
+                    startTest(true); // Restore with saved state
+                } else if (savedResultData) {
+                    console.log('Found saved results, showing results screen');
+                    const savedResult = await getSavedResult();
+                    if (savedResult) {
+                        showSavedResult(savedResult);
+                    }
+                } else {
+                    console.log('No state to restore, setting up start button');
+                    setupStartButton();
+                }
+                
+            } catch (e) {
+                console.error('Error in state restoration:', e);
+                // Make sure start button is properly set up
+                setupStartButton();
+            } finally {
+                // Always hide the loader when done
+                hideLoader();
+                // Mark initialization as complete
+                isInitializing = false;
+            }
+        }
+        
+        // Initialize questions array
+        questions = [
+            {
+                q: "1. ¿Qué actividad te resulta más atractiva?",
+                options: [
+                    { text: "Crear contenido visual o escribir para redes", routes: ["Diseño de contenido", "Marketing en redes"] },
+                    { text: "Resolver problemas con lógica o códigos", routes: ["Programación", "Desarrollo de software"] },
+                    { text: "Pensar en nuevas ideas para negocios", routes: ["Emprendimiento", "Creatividad e innovación"] },
+                    { text: "Ayudar a los demás o resolver consultas", routes: ["Servicio al cliente", "Ventas"] }
+                ]
+            },
+            {
+                q: "2. ¿Qué preferís aprender?",
+                options: [
+                    { text: "Herramientas como Excel, Word, PowerPoint", routes: ["Competencias digitales"] },
+                    { text: "Cómo gestionar recursos y tareas", routes: ["Manejo de proyectos"] },
+                    { text: "Cómo proteger la información en internet", routes: ["Ciberseguridad"] },
+                    { text: "Cómo tomar decisiones con números", routes: ["Contabilidad", "Análisis de datos"] }
+                ]
+            },
+            {
+                q: "3. ¿Te gustaría trabajar más con...?",
+                options: [
+                    { text: "Gente, clientes o audiencias", routes: ["Servicio al cliente", "Marketing", "Ventas"] },
+                    { text: "Computadoras y tecnología", routes: ["IA", "Software", "Ciberseguridad"] },
+                    { text: "Ideas nuevas y creatividad", routes: ["Creatividad", "Diseño", "Emprendimiento"] },
+                    { text: "Organización y procesos", routes: ["Transformación digital", "Proyectos", "Contabilidad"] }
+                ]
+            },
+            {
+                q: "4. Si tenés que hacer un proyecto escolar, ¿qué rol preferís?",
+                options: [
+                    { text: "Diseñar la presentación o editar el video", routes: ["Diseño de contenido"] },
+                    { text: "Coordinar al equipo y definir tareas", routes: ["Manejo de proyectos"] },
+                    { text: "Analizar datos o gráficos", routes: ["Análisis de datos", "Contabilidad"] },
+                    { text: "Investigar o buscar soluciones técnicas", routes: ["IA", "Software", "Ciberseguridad"] }
+                ]
+            },
+            {
+                q: "5. ¿Cuál de estas frases se parece más a vos?",
+                options: [
+                    { text: "Tengo buena imaginación y muchas ideas", routes: ["Creatividad e innovación"] },
+                    { text: "Soy práctico y resuelvo problemas técnicos", routes: ["Programación", "Análisis de datos"] },
+                    { text: "Me gusta atender y entender a las personas", routes: ["Servicio al cliente", "Ventas"] },
+                    { text: "Soy ordenado/a y me fijo en los detalles", routes: ["Contabilidad", "Proyectos"] }
+                ]
+            },
+            {
+                q: "6. ¿Qué tipo de contenido te interesa ver o crear?",
+                options: [
+                    { text: "Videos, memes, campañas", routes: ["Diseño de contenido", "Marketing"] },
+                    { text: "Juegos, apps, herramientas", routes: ["Desarrollo de software", "Videojuegos"] },
+                    { text: "Planes de negocios o estrategias", routes: ["Emprendimiento", "Transformación digital"] },
+                    { text: "Cursos, hojas de cálculo, documentos", routes: ["Competencias digitales", "Ofimática"] }
+                ]
+            },
+            {
+                q: "7. ¿Qué te gustaría saber hacer en un futuro cercano?",
+                options: [
+                    { text: "Hacer crecer un emprendimiento", routes: ["Emprendimiento"] },
+                    { text: "Crear un videojuego o una app", routes: ["Videojuegos", "Software"] },
+                    { text: "Comunicar bien un producto o marca", routes: ["Marketing", "Ventas"] },
+                    { text: "Usar tecnología para resolver tareas", routes: ["Ofimática", "Transformación digital"] }
+                ]
+            },
+            {
+                q: "8. ¿Cuál de estas áreas te llama más la atención?",
+                options: [
+                    { text: "Inteligencia Artificial o aprendizaje automático", routes: ["IA"] },
+                    { text: "Finanzas personales o registro de gastos", routes: ["Contabilidad"] },
+                    { text: "Herramientas para trabajar mejor en equipo", routes: ["Manejo de proyectos"] },
+                    { text: "Redes sociales y campañas digitales", routes: ["Marketing en redes"] }
+                ]
+            },
+            {
+                q: "9. ¿Qué elegís si tenés 2 horas libres para aprender algo nuevo?",
+                options: [
+                    { text: "Tomar un curso creativo o de diseño", routes: ["Diseño de contenido"] },
+                    { text: "Investigar sobre cómo funciona un sistema", routes: ["Software", "IA"] },
+                    { text: "Aprender técnicas de ventas o atención al cliente", routes: ["Ventas", "Servicio al cliente"] },
+                    { text: "Organizar información o datos", routes: ["Análisis de datos", "Competencias digitales"] }
+                ]
+            },
+            {
+                q: "10. ¿Qué frase te representa mejor?",
+                options: [
+                    { text: "Tengo buena imaginación y muchas ideas", routes: ["Creatividad", "IA"] },
+                    { text: "Soy práctico y resuelvo problemas técnicos", routes: ["Programación", "Análisis de datos"] },
+                    { text: "Me gusta atender y entender a las personas", routes: ["Servicio al cliente", "Ventas"] },
+                    { text: "Soy ordenado/a y me fijo en los detalles", routes: ["Contabilidad", "Proyectos"] }
+                ]
+            },
+            {
+                q: "11. ¿Cuál de estas actividades elegirías en una feria de profesiones?",
+                options: [
+                    { text: "Hacer una app o juego", routes: ["Desarrollo de software", "Videojuegos"] },
+                    { text: "Vender un producto con una estrategia", routes: ["Ventas", "Marketing"] },
+                    { text: "Hacer una campaña visual", routes: ["Diseño de contenido"] },
+                    { text: "Armar un plan para un nuevo negocio", routes: ["Emprendimiento"] }
+                ]
+            },
+            {
+                q: "12. ¿Cuál sería tu “súper poder” ideal?",
+                options: [
+                    { text: "Entender el lenguaje de las máquinas", routes: ["Programación", "IA"] },
+                    { text: "Hacer que la gente diga “wow” con una presentación", routes: ["Creatividad", "Diseño de contenido"] },
+                    { text: "Convencer a cualquiera de comprar algo", routes: ["Ventas", "Marketing"] },
+                    { text: "Organizarlo todo para que funcione perfecto", routes: ["Proyectos", "Contabilidad"] }
+                ]
+            }
+        ];
+
+        // Initialize answer pattern after questions are loaded
+        answerPattern = Array(questions.length).fill('');
+        
+        /**
+         * Save the current state of the test to localStorage and cookies
+         */
+        function saveTestState() {
+            try {
+                // Save current state
+                const state = {
+                    current: current,
+                    answerPattern: answerPattern,
+                    scores: scores,
+                    timestamp: Date.now()
+                };
+                
+                // Save to localStorage if available
+                if (checkLocalStorage()) {
+                    localStorage.setItem(STORAGE_KEYS.TEST_STATE, JSON.stringify(state));
+                }
+                
+                // Also save to cookies for persistent storage even if localStorage is cleared
+                setCookie('TEST_STATE', JSON.stringify(state), 7); // Store for 7 days
+                
+                console.log('Test state saved to localStorage and cookies:', state);
+                return true;
+            } catch (e) {
+                console.error('Error saving test state:', e);
+                return false;
+            }
+        }
+        
+        /**
+         * Retrieve and restore the test state from localStorage or cookies
+         * @returns {boolean} - True if state was successfully restored, false otherwise
+         */
+        function getTestState() {
+            try {
+                let state = null;
+                let stateSource = '';
+                
+                // Try localStorage first
+                if (checkLocalStorage()) {
+                    const stateStr = localStorage.getItem(STORAGE_KEYS.TEST_STATE);
+                    if (stateStr) {
+                        state = JSON.parse(stateStr);
+                        stateSource = 'localStorage';
+                    }
+                }
+                
+                // If localStorage failed, try cookies
+                if (!state) {
+                    state = getCookie('TEST_STATE');
+                    stateSource = 'cookies';
+                }
+                
+                // No state found in either place
+                if (!state) {
+                    console.log('No saved test state found in localStorage or cookies');
+                    return false;
+                }
+                
+                // Validate state with more detailed logging
+                if (!state) {
+                    console.warn('Invalid saved state: state is null or undefined');
+                    return false;
+                }
+                
+                if (typeof state.current !== 'number') {
+                    console.warn('Invalid saved state: current is not a number:', state.current);
+                    return false;
+                }
+                
+                if (!Array.isArray(state.answerPattern)) {
+                    console.warn('Invalid saved state: answerPattern is not an array:', state.answerPattern);
+                    return false;
+                }
+                
+                // More lenient validation: ensure current is within a reasonable range (0 to questions.length)
+                if (state.current < 0 || state.current >= questions.length + 1) { // +1 to allow for final question
+                    console.warn('Invalid saved state: current index out of range:', state.current);
+                    return false;
+                }
+                
+                // Check if the saved state is more than 3 days old
+                const savedTime = new Date(state.timestamp);
+                const now = new Date();
+                const timeDiff = now - savedTime;
+                if (timeDiff > 3 * 24 * 60 * 60 * 1000) { // 3 days in milliseconds
+                    console.log('Saved state is too old, discarding');
+                    // Clean up expired state
+                    if (checkLocalStorage()) {
+                        localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+                    }
+                    deleteCookie('TEST_STATE');
+                    return false;
+                }
+                
+                // Restore state
+                current = state.current;
+                answerPattern = state.answerPattern;
+                scores = state.scores || {}; // Fallback for old saved states without scores
+                
+                console.log(`Test state restored from ${stateSource}:`, state);
+                return true;
+            } catch (e) {
+                console.error('Error restoring test state:', e);
+                return false;
+            }
+        }
+        
+        /**
+         * Save the test result to localStorage
+         * @param {string} result - The result to save
+         * @param {boolean} skipShowResult - Whether to skip showing the result after saving
+         */
+        async function saveResult(resultHtml, skipShowResult = false) {
+            console.log('[DEBUG] saveResult called. Saving resultHtml:', typeof resultHtml, resultHtml && resultHtml.length ? resultHtml.slice(0, 120) + '...' : resultHtml);
+
+            if (typeof resultHtml === 'string' && resultHtml.trim().startsWith('<')) {
+                try {
+                    localStorage.setItem(STORAGE_KEYS.TEST_RESULT, resultHtml);
+                    setCookie('test_result', resultHtml, 30);
+                    if (!skipShowResult) {
+                        showSavedResult(resultHtml);
+                    }
+                    console.log('[DEBUG] Result saved to localStorage:', localStorage.getItem(STORAGE_KEYS.TEST_RESULT));
+                } catch (e) {
+                    console.error('Error saving result:', e);
+                }
+            } else {
+                console.warn('[WARN] Attempted to save non-HTML result to TEST_RESULT. Ignored. Value:', resultHtml);
+            }
+            if (!skipShowResult) {
+                showResult(true); // Pass true to indicate we're coming from saveResult
+            }
+            return true;
+        }
+        
+        /**
+         * Retrieve and restore the test result from localStorage or cookies
+         * @returns {boolean} - True if state was successfully restored, false otherwise
+         */
+        async function getTestResult() {
+            try {
+                let result = null;
+                let resultSource = '';
+                
+                // Try localStorage first
+                if (checkLocalStorage()) {
+                    const resultStr = localStorage.getItem(STORAGE_KEYS.TEST_RESULT);
+                    if (resultStr) {
+                        result = resultStr;
+                        resultSource = 'localStorage';
+                    }
+                }
+                
+                // If localStorage failed, try cookies
+                if (!result) {
+                    result = getCookie('test_result');
+                    resultSource = 'cookies';
+                }
+                
+                // No result found in either place
+                if (!result) {
+                    console.log('No saved test result found in localStorage or cookies');
+                    return false;
+                }
+                
+                // Validate result with more detailed logging
+                if (!result) {
+                    console.warn('Invalid saved result: result is null or undefined');
+                    return false;
+                }
+                
+                // Restore result
+                console.log(`Test result restored from ${resultSource}:`, result);
+                return true;
+            } catch (e) {
+                console.error('Error restoring test result:', e);
+                return false;
+            }
+        }
+        
+        // Function to send result to server for database storage
+        async function sendResultToServer(resultText) {
+    // [DEBUG] About to send result to server. Log state
+    console.log('[DEBUG] sendResultToServer called. State:', {
+        scores,
+        answerPattern
+    });
+            try {
+                // Create a unique user ID if none exists
+                let userId = localStorage.getItem('user_id');
+                if (!userId) {
+                    userId = 'user_' + new Date().getTime() + '_' + Math.random().toString(36).substring(2, 9);
+                    localStorage.setItem('user_id', userId);
+                }
+
+                // Prepare main result string
+                const result = resultText || (typeof finalResult === 'string' ? finalResult : '');
+                // Prepare answers (array of selected options, e.g., ['A', 'B', ...])
+                const answers = Array.isArray(answerPattern) ? answerPattern : [];
+                // Prepare full_answers (array of question/answer objects)
+                const full_answers = typeof getFullAnswers === 'function' ? getFullAnswers() : [];
+                // Prepare top_routes (array of most relevant routes)
+                let top_routes = [];
+                if (scores && typeof scores === 'object') {
+                    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+                    top_routes = sorted.slice(0, 2).map(([route, _]) => route);
+                }
+                // Prepare test_date (current date/time in ISO format)
+                const now = new Date();
+                const pad = n => n.toString().padStart(2, '0');
+                const test_date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+                const payload = {
+                    result,
+                    answers,
+                    full_answers,
+                    top_routes,
+                    test_date
+                };
+
+                // Send data to the PHP API
+                const response = await fetch('/api/save_result.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    // Try to get error message from response
+                    let errorMsg = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errData = await response.json();
+                        if (errData && errData.error) errorMsg = errData.error;
+                    } catch {}
+                    throw new Error(errorMsg);
+                }
+
+                const data = await response.json();
+                console.log('Result saved to database:', data);
+
+                // Store the result ID if present
+                if (data.id) {
+                    localStorage.setItem('result_id', data.id);
+                }
+
+                // Show success to user
+                console.log('[DEBUG] Calling showResult(true) after successful result save.');
+        // (Moved backup to saveResult, not needed here)
+
+showResult(true); // Show result screen after saving
+
+                return true;
+            } catch (error) {
+                console.error('Error sending result to server:', error);
+                // Show error feedback to user
+                alert('Error al guardar el resultado en el servidor: ' + (error.message || error));
+                // Still show result screen (with local data)
+                showResult(true);
+                return false;
+            }
+        }
+        
+        // --- On page load, show result if it exists ---
+// We'll load the test state later in the initApp function
+// after ensuring all questions are loaded
+
+// Initialize UI elements
+        const chatBox = document.getElementById('chat-box');
+        const resultBox = document.getElementById('result');
+        const progressBar = document.getElementById('progress-bar');
+        
+        // Define debounce function first so it can be used anywhere
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        };
+        
+        // Define showQuestion function before using it in debounce
+        async function showQuestion(isRestoring = false) {
+            // Track question progress if analytics is loaded
+            if (!isRestoring && current > 0 && typeof trackTestProgress === 'function') {
+                try {
+                    await trackTestProgress(current, questions.length);
+                } catch (e) {
+                    console.warn('Failed to track question progress:', e);
+                }
+            }
+            // Always get the chatBox element fresh
+            const chatBox = document.getElementById('chat-box');
+            // Use requestAnimationFrame for smoother animations
+            requestAnimationFrame(() => {
+                console.log('showQuestion with isRestoring:', isRestoring);
+                console.log('showQuestion called, current question:', current, isRestoring ? '(restoring state)' : '');
+                if (!chatBox) {
+                    console.error('Chat box element not found');
+                    return;
+                }
+                
+                try {
+                    // Create a new fragment for this question
+                    const fragment = document.createDocumentFragment();
+                    
+                    // Clear chat box efficiently
+                    while (chatBox.firstChild) {
+                        chatBox.removeChild(chatBox.firstChild);
+                    }
+                    
+                    // Check if we've reached the end of the questions
+                    if (current >= questions.length) {
+                        console.log('Reached the end of questions, showing result');
+                        showResult();
+                        return;
+                    }
+                    
+                    // Get current question
+                    const q = questions[current];
+                    console.log('Current question object:', q);
+                    
+                    if (!q) {
+                        throw new Error(`No se encontró la pregunta ${current + 1}`);
+                    }
+                    
+                    // Create and append question element
+                    const div = document.createElement('div');
+                    div.className = 'message bot';
+                    div.textContent = q.q;
+                    
+                    // Create options container
+                    const optionsDiv = document.createElement('div');
+                    optionsDiv.className = 'options';
+                    
+                    // Check if options exist and is an array
+                    if (!q.options || !Array.isArray(q.options)) {
+                        throw new Error('Las opciones de la pregunta no son válidas');
+                    }
+                    
+                    // Create option buttons using DocumentFragment for better performance
+                    const optionsFragment = document.createDocumentFragment();
+                    
+                    q.options.forEach((option, index) => {
+                        if (!option || !option.text || !option.routes) {
+                            console.error('Invalid option format at index', index, ':', option);
+                            return;
+                        }
+                        
+                        const btn = document.createElement('button');
+                        btn.className = 'option-btn';
+                        btn.textContent = option.text;
+                        
+                        // Use event delegation for better performance
+                        btn.onclick = (e) => {
+                            console.log('Button clicked:', option.text);
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            // Disable all buttons to prevent multiple clicks
+                            const buttons = optionsDiv.querySelectorAll('.option-btn');
+                            console.log('Disabling all buttons...');
+                            buttons.forEach(b => {
+                                b.disabled = true;
+                                b.classList.add('disabled');
+                            });
+                            console.log('All buttons disabled');
+                            
+                            // Record the answer (A, B, C, or D)
+                            const answerLetter = String.fromCharCode(65 + index);
+                            // Ensure answerPattern is properly updated
+                            const updatedPattern = [...answerPattern];
+                            updatedPattern[current] = answerLetter;
+                            answerPattern.splice(0, answerPattern.length, ...updatedPattern);
+                            
+                            // Process routes
+                            option.routes.forEach(route => {
+                                scores[route] = (scores[route] || 0) + 1;
+                            });
+                            
+                            current++;
+                            console.log('Moving to next question, new current index:', current);
+                            updateProgressBar();
+                            
+                            // Save state immediately after answering
+                            try {
+                                console.log('About to save test state...');
+                                saveTestState();
+                                console.log('Test state saved successfully');
+                            } catch (err) {
+                                console.error('Error saving test state:', err);
+                            }
+                            
+                            // Save state and show next question with a small delay for better UX
+                            console.log('Setting timeout for next question');
+                            setTimeout(async () => {
+                                console.log('Timeout callback executing, current question:', current);
+                                try {
+                                    if (current >= questions.length) {
+    // Last question answered, show the result
+    showResult();
+    return;
+}
+                                    // Show next question
+                                    showQuestion();
+                                } catch (error) {
+                                    console.error('Error saving state:', error);
+                                    // Fallback to direct show
+                                    if (current < questions.length) {
+                                        showQuestion();
+                                    } else {
+                                        showResult();
+                                    }
+                                }
+                            }, 250);
+                        };
+                        optionsFragment.appendChild(btn);
+                    });
+                    optionsDiv.appendChild(optionsFragment);
+                    fragment.appendChild(div);
+                    fragment.appendChild(optionsDiv);
+                    chatBox.appendChild(fragment);
+
+                    // DEBUG: Add visible marker and log HTML
+                    chatBox.style.background = '';
+console.log('[DEBUG] chatBox.innerHTML after render:', chatBox.innerHTML);
+
+                    // FORCE VISIBILITY PATCH
+                    chatBox.style.display = 'block';
+                    chatBox.style.opacity = '1';
+                    chatBox.style.visibility = 'visible';
+                    const testContent = document.getElementById('test-content');
+                    if (testContent) {
+                        testContent.style.display = 'block';
+                        testContent.style.opacity = '1';
+                        testContent.style.visibility = 'visible';
+                    }
+                    const chatContainer = document.getElementById('chat-container');
+                    if (chatContainer) {
+                        chatContainer.style.display = 'block';
+                        chatContainer.style.opacity = '1';
+                        chatContainer.style.visibility = 'visible';
+                    }
+
+                    // Scroll to show the new content
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    
+                } catch (error) {
+                    console.error('Error showing question:', error);
+                    if (chatBox) {
+                        chatBox.innerHTML = `
+                            <div class="message bot">
+                                <p>Lo siento, hubo un error al cargar la pregunta.</p>
+                                <p>Por favor, intenta recargar la página o reiniciar el test.</p>
+                                <p>Si el problema persiste, por favor contacta al soporte.</p>
+                                <p>Error: ${error.message}</p>
+                                <button id="reset-test-btn" class="btn btn-danger mt-3">Reiniciar Test</button>
+                            </div>`;
+                        
+                        // Add event listener to the reset button after it's added to the DOM
+                        setTimeout(() => {
+                            const resetBtn = document.getElementById('reset-test-btn');
+                            if (resetBtn) {
+                                resetBtn.addEventListener('click', function() {
+                                    restartTest();
+                                });
+                            }
+                        }, 0);
+                    }
+                }
+            });
+        }
+
+        function getFullAnswers() {
+            // Create an array of objects with question and answer data
+            return questions.map((question, index) => ({
+                question: question.text,
+                answer: answerPattern[index] || '',
+                questionNumber: index + 1
+            }));
+        }
+
+        async function showResult(fromSaveResult = false) {
+            // Track test completion if analytics is loaded
+            const startTime = performance.now();
+            const testTime = Math.round((performance.now() - startTime) / 1000); // in seconds
+            
+            if (typeof trackTestCompletion === 'function') {
+                try {
+                    await trackTestCompletion({
+                        routes: topRoutes,
+                        answers: getFullAnswers()
+                    }, testTime);
+                } catch (e) {
+                    console.warn('Failed to track test completion:', e);
+                }
+            }
+    // Patch: Use backup if state is empty and fromSaveResult is true
+    if (fromSaveResult && (!scores || Object.keys(scores).length === 0) && window._lastScores) {
+        console.log('[DEBUG] showResult using backup scores/answerPattern');
+        scores = JSON.parse(JSON.stringify(window._lastScores));
+        answerPattern = JSON.parse(JSON.stringify(window._lastAnswerPattern));
+    }
+    console.log('[DEBUG] Entered showResult. fromSaveResult:', fromSaveResult);
+    // Log current state before displaying result
+    console.log('[DEBUG] State before showResult:', {
+        scores,
+        answerPattern,
+        current
+    });
+            // Hide the chat box and show close button
+            chatBox.style.display = 'none';
+            const closeBtn = document.getElementById('result-close-btn');
+            if (closeBtn) closeBtn.style.display = 'block';
+            
+            // Debug: Log the scores object to see what's in it
+            console.log('Scores object:', JSON.stringify(scores, null, 2));
+            
+            // Calculate the result
+            let sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+            
+            // Debug: Log the sorted array
+            console.log('Sorted scores:', JSON.stringify(sorted, null, 2));
+            
+            // Make sure we have valid results
+            if (sorted.length === 0) {
+                console.error('No scores available to determine result');
+                return;
+            }
+            
+            let topRoute = sorted[0][0] || 'No se pudo determinar';
+            let topScore = sorted[0][1] || 0;
+            
+            // Prepare secondary option if applicable
+            let secondary = '';
+            if (sorted.length > 1 && sorted[1][1] >= topScore - 1) {
+                secondary = `
+                    <div style="margin-top: 20px;">
+                        <div style="font-weight: normal;">También podrías explorar: <strong>${sorted[1][0] || ''}</strong></div>
+                    </div>`;
+            }
+            
+            // Create result HTML with proper structure
+            const resultDiv = document.createElement('div');
+            resultDiv.style.marginBottom = '30px';
+            resultDiv.style.fontSize = '16px';
+            resultDiv.style.lineHeight = '1.5';
+
+            // Main title
+            const mainTitle = document.createElement('h3');
+            mainTitle.style.color = '#2c3e50';
+            mainTitle.style.marginBottom = '20px';
+            mainTitle.style.fontSize = '32px';
+            mainTitle.style.fontWeight = 'bold';
+            mainTitle.textContent = '¡Tu resultado está listo!';
+
+            // Result section with route
+            const resultSection = document.createElement('div');
+            const resultTitle = document.createElement('div');
+
+            // --- Add Restart Button ---
+            const resultRestartBtn = document.createElement('button');
+            resultRestartBtn.textContent = 'Reiniciar';
+            resultRestartBtn.className = 'btn btn-primary';
+            resultRestartBtn.style.marginTop = '30px';
+            resultRestartBtn.style.fontSize = '18px';
+            resultRestartBtn.style.padding = '10px 32px';
+            resultRestartBtn.style.background = '#3498db';
+            resultRestartBtn.style.color = '#fff';
+            resultRestartBtn.style.border = 'none';
+            resultRestartBtn.style.borderRadius = '6px';
+            resultRestartBtn.style.cursor = 'pointer';
+            resultRestartBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                restartTest(); // Only clear state and reset UI when user clicks
+            };
+            // --- End Restart Button ---
+            resultTitle.textContent = 'Tu ruta ideal es:';
+            resultTitle.className = 'normal-text';
+            resultTitle.style.fontSize = '28px';
+            resultTitle.style.marginBottom = '2px';
+            
+            const routeName = document.createElement('div');
+            // Ensure we're setting text content, not HTML
+            routeName.textContent = topRoute.replace(/<[^>]*>?/gm, '');
+            routeName.style.fontSize = '28px';
+            routeName.style.fontWeight = 'bold';
+            routeName.style.color = '#2c3e50';
+            routeName.style.marginBottom = '30px'; // Keep bottom margin for separation from next section
+            
+            resultSection.appendChild(resultTitle);
+            resultSection.appendChild(routeName);
+            
+            // Secondary options if available
+            let secondarySection = null;
+            if (secondary) {
+                secondarySection = document.createElement('div');
+                secondarySection.style.marginTop = '20px';
+                
+                const exploreText = document.createElement('div');
+                exploreText.className = 'normal-text';
+                exploreText.style.fontSize = '28px';
+                exploreText.style.marginBottom = '12px';
+                exploreText.textContent = 'También podrías explorar:';
+                
+                const secondaryRoute = document.createElement('div');
+                secondaryRoute.style.fontWeight = 'bold';
+                secondaryRoute.style.fontSize = '28px';
+                // Clean any HTML tags from the secondary route
+                // Get the secondary route and clean any HTML tags
+                const secondaryRouteName = Array.isArray(sorted) && sorted[1] && sorted[1][0] 
+                    ? sorted[1][0].replace(/<[^>]*>?/gm, '') 
+                    : '';
+                secondaryRoute.textContent = secondaryRouteName;
+                
+                secondarySection.appendChild(exploreText);
+                secondarySection.appendChild(secondaryRoute);
+            }
+            
+            // Create answer breakdown section for transparency
+            const breakdownSection = document.createElement('div');
+            breakdownSection.style.marginTop = '30px';
+            breakdownSection.style.padding = '15px';
+            breakdownSection.style.backgroundColor = '#f8f9fa';
+            breakdownSection.style.borderRadius = '8px';
+            breakdownSection.style.border = '1px solid #dee2e6';
+            
+            const breakdownTitle = document.createElement('h4');
+            breakdownTitle.textContent = 'Desglose de respuestas:';
+            breakdownTitle.style.marginBottom = '10px';
+            breakdownTitle.style.color = '#495057';
+            
+            // Create the answer breakdown in format "A3, B2, C1"
+            const answerCounts = {};
+            answerPattern.forEach(answer => {
+                if (answer) {
+                    answerCounts[answer] = (answerCounts[answer] || 0) + 1;
+                }
+            });
+            
+            const breakdownText = document.createElement('div');
+            breakdownText.style.fontFamily = 'monospace';
+            breakdownText.style.fontSize = '16px';
+            
+            // Format as "A3, B2, C1"
+            const formattedBreakdown = Object.entries(answerCounts)
+                .map(([letter, count]) => `${letter}${count}`)
+                .join(', ');
+            
+            breakdownText.textContent = formattedBreakdown;
+            
+            // Add route scores for additional transparency
+            const routeScores = document.createElement('div');
+            routeScores.style.marginTop = '10px';
+            routeScores.style.fontFamily = 'monospace';
+            routeScores.style.fontSize = '14px';
+            
+            const routeScoresList = Object.entries(scores)
+                .map(([route, score]) => `${route}: ${score}`)
+                .join(' | ');
+            
+            routeScores.textContent = 'Puntuaciones por ruta: ' + routeScoresList;
+            
+            breakdownSection.appendChild(breakdownTitle);
+            breakdownSection.appendChild(breakdownText);
+            breakdownSection.appendChild(routeScores);
+            
+            // Add the breakdown section to the result div
+            resultDiv.appendChild(breakdownSection);
+            
+            // Create answer breakdown HTML for storage
+            const answerBreakdownHtml = `
+            <div style="margin-top: 30px; padding: 15px; background-color: rgb(248, 249, 250); border-radius: 8px; font-size: 14px;">
+                <h4 style="margin-bottom: 10px; color: rgb(73, 80, 87);">Desglose de respuestas:</h4>
+                <div style="font-family: monospace; font-size: 16px;">${answerPattern.map((a, i) => {
+                    const questionIndex = i + 1;
+                    return String.fromCharCode(65 + a) + questionIndex;
+                }).join(', ')}</div>
+                <div style="margin-top: 10px; font-family: monospace; font-size: 14px;">Puntuaciones por ruta: ${Object.entries(scores).map(([route, score]) => `${route}: ${score}`).join(' | ')}</div>
+            </div>
+            `;
+            
+            // Update the recent tests container with the answer breakdown
+            const recentTestsContainer = document.getElementById('recent-tests-container');
+            if (recentTestsContainer) {
+                // Create a new entry for recent tests
+                const recentTestEntry = document.createElement('div');
+                recentTestEntry.className = 'recent-test-entry';
+                recentTestEntry.style.padding = '10px';
+                recentTestEntry.style.margin = '10px 0';
+                recentTestEntry.style.backgroundColor = '#f8f9fa';
+                recentTestEntry.style.borderRadius = '5px';
+                recentTestEntry.style.border = '1px solid #dee2e6';
+                
+                // Add timestamp
+                const timestamp = document.createElement('div');
+                timestamp.style.fontWeight = 'bold';
+                timestamp.style.marginBottom = '5px';
+                const now = new Date();
+                timestamp.textContent = `Test completado: ${now.toLocaleString()}`;
+                
+                // Add result
+                const resultText = document.createElement('div');
+                resultText.textContent = `Resultado: ${topRoute}`;
+                resultText.style.marginBottom = '5px';
+                
+                // Add answer breakdown
+                const answerBreakdown = document.createElement('div');
+                answerBreakdown.style.fontFamily = 'monospace';
+                answerBreakdown.style.fontSize = '14px';
+                answerBreakdown.textContent = `Desglose de respuestas: ${formattedBreakdown}`;
+                
+                // Add all elements to the entry
+                recentTestEntry.appendChild(timestamp);
+                recentTestEntry.appendChild(resultText);
+                recentTestEntry.appendChild(answerBreakdown);
+                
+                // Clear any error messages
+                recentTestsContainer.innerHTML = '';
+                
+                // Add the entry to the container
+                recentTestsContainer.appendChild(recentTestEntry);
+            }
+            
+            // Restart button
+            const restartBtn = document.createElement('a');
+            restartBtn.id = 'restart-btn';
+            restartBtn.href = 'jc_test_vocacional.html?restart=true&_t=' + new Date().getTime();
+            restartBtn.style.marginTop = '30px';
+            restartBtn.style.display = 'inline-block';
+            restartBtn.style.padding = '10px 20px';
+            restartBtn.style.fontSize = '16px';
+            restartBtn.style.cursor = 'pointer';
+            restartBtn.style.backgroundColor = '#28a745';
+            restartBtn.style.color = 'white';
+            restartBtn.style.textDecoration = 'none';
+            restartBtn.style.border = 'none';
+            restartBtn.style.borderRadius = '5px';
+            restartBtn.style.transition = 'background-color 0.3s';
+            restartBtn.textContent = 'Hacer otro test';
+            restartBtn.onclick = function(e) {
+    // [DEBUG] Only clear storage and restart on explicit user action
+    console.log('[DEBUG] Restart button clicked - about to clear ALL storage and call restartTest()');
+                e.preventDefault();
+                console.log('🔄 Restart button clicked - executing restartTest() function directly');
+                
+                // Clear ALL storage
+                for (const key in localStorage) {
+        if (key.includes('TEST_') || key.includes('test_')) {
+            console.log('[DEBUG] Clearing localStorage key:', key);
+            localStorage.removeItem(key);
+        }
+    }
+    localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+    localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+    localStorage.removeItem('lastTestResult');
+    sessionStorage.clear();
+    console.log('[DEBUG] All relevant storage cleared. About to call restartTest()...');
+                
+                // Call the restartTest function to ensure proper UI reset
+                console.log('[DEBUG] Calling restartTest()...');
+    const resetSuccess = restartTest();
+    console.log('[DEBUG] restartTest() completed with status:', resetSuccess);
+                
+                // Force reload the page to ensure a fresh start
+                setTimeout(() => {
+                    window.location.href = 'jc_test_vocacional.html?restart=true&_t=' + new Date().getTime();
+                }, 100);
+            };
+            
+            // Note: Formula details are now sent to the database and will be displayed on the dashboard
+            // Create formula details for database storage
+            let formulaDetailsHtml = '';
+            
+            // Create table for score breakdown - this won't be displayed here
+            let scoreTableHtml = `
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                <thead>
+                    <tr>
+                        <th style="text-align: left; padding: 5px; border-bottom: 1px solid #ddd;">Categoría</th>
+                        <th style="text-align: center; padding: 5px; border-bottom: 1px solid #ddd;">Puntuación</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            // Build score table HTML
+            Object.entries(scores)
+                .sort((a, b) => b[1] - a[1])
+                .forEach(([route, score]) => {
+                    scoreTableHtml += `
+                    <tr>
+                        <td style="padding: 5px; border-bottom: 1px solid #eee;">${route}</td>
+                        <td style="text-align: center; padding: 5px; border-bottom: 1px solid #eee;">${score}</td>
+                    </tr>`;
+                });
+            
+            scoreTableHtml += '</tbody></table>';
+            
+            // Build complete formula details HTML
+            formulaDetailsHtml = `
+            <div class="formula-details" style="margin-top: 30px; padding: 15px; background-color: rgb(249, 249, 249); border-radius: 8px; font-size: 14px;">
+                <h4 style="margin-bottom: 10px; color: rgb(44, 62, 80);">Detalles del cálculo</h4>
+                ${scoreTableHtml}
+            </div>`;
+            
+            // Build explanation text for the formula details
+            const explanationText = 'Las puntuaciones se calculan basadas en tus respuestas a las preguntas del test. Cada opción escogida suma puntos a diferentes categorías, y las categorías con mayor puntuación determinan tu perfil recomendado.';
+            
+            // Add test metadata as text
+            const metadataClassName = 'test-metadata';
+            
+            // Prepare metadata as part of the formula details HTML string instead of DOM manipulation
+            
+            // Format date in Spanish
+            const testDate = new Date();
+            const dateOptions = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            const formattedDate = testDate.toLocaleDateString('es-ES', dateOptions);
+            
+            // Get browser info
+            const userAgent = navigator.userAgent;
+            let browserInfo = '';
+            if (userAgent.indexOf('Firefox') > -1) {
+                browserInfo = 'Firefox';
+            } else if (userAgent.indexOf('Chrome') > -1) {
+                browserInfo = 'Chrome';
+            } else if (userAgent.indexOf('Safari') > -1) {
+                browserInfo = 'Safari';
+            } else if (userAgent.indexOf('Opera') > -1 || userAgent.indexOf('OPR') > -1) {
+                browserInfo = 'Opera';
+            } else if (userAgent.indexOf('Edge') > -1) {
+                browserInfo = 'Edge';
+            } else if (userAgent.indexOf('Trident') > -1) {
+                browserInfo = 'Internet Explorer';
+            } else {
+                browserInfo = 'Navegador desconocido';
+            }
+            
+            // Add metadata to the formula details HTML string
+            const metadataHtml = `
+                <div style="margin-top: 15px; font-size: 12px; color: #777;">
+                    <div>Fecha y hora: ${formattedDate}</div>
+                    <div>ID del test: ${localStorage.getItem('user_id') || 'No disponible'}</div>
+                    <div>Navegador: ${browserInfo}</div>
+                    <div>Patrón de respuestas: ${answerPattern.join('')}</div>
+                </div>
+            `;
+            
+            // Update the formula details HTML to include the explanation and metadata
+            formulaDetailsHtml = formulaDetailsHtml.replace('</div>', `
+                <p style="font-size: 13px; color: #555;">${explanationText}</p>
+                ${metadataHtml}
+            </div>`);
+            
+            // Assemble the result
+            resultDiv.appendChild(mainTitle);
+            resultDiv.appendChild(resultSection);
+            
+            // Add secondary section if it exists
+            if (secondarySection) {
+                resultDiv.appendChild(secondarySection);
+            }
+            
+            // Note: Formula details are now sent to the backend for display on dashboard
+            // Create a copy of formulaDetailsHtml for backward compatibility
+            const formulaDetails = formulaDetailsHtml;
+            
+            // Add restart button
+            resultDiv.appendChild(restartBtn);
+            
+            // Save the result only if not coming from saveResult already
+            if (!fromSaveResult) {
+                saveResult(resultDiv.outerHTML, true); // true = skipShowResult to prevent recursion
+            }
+            
+            // Display the result
+            resultBox.innerHTML = '';
+            resultBox.appendChild(resultDiv);
+            resultBox.style.display = 'block';
+
+            // Ensure loader is hidden when showing results
+            if (typeof hideLoader === 'function') hideLoader();
+
+            // Hide the chat box
+            chatBox.style.display = 'none';
+
+            // Immediately remove ?restart and ?_t from the URL so reload does not trigger a reset
+            if (window.location.search.includes('restart') || window.location.search.includes('_t')) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+        function updateProgressBar() {
+            const progress = (current / questions.length) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+
+        async function showSavedResult(savedResult) {
+            console.log('showSavedResult called with type:', typeof savedResult);
+            
+            // First ensure proper UI state - hide the start screen to prevent overlap
+            const startScreen = document.getElementById('start-screen');
+            if (startScreen) {
+                startScreen.style.display = 'none';
+                startScreen.style.visibility = 'hidden';
+                startScreen.style.opacity = '0';
+                console.log('Hiding start screen to prevent overlap');
+            }
+            
+            // Handle if savedResult is a Promise
+            if (savedResult instanceof Promise) {
+                console.warn('showSavedResult received a Promise instead of data. Resolving...');
+                try {
+                    savedResult = await savedResult;
+                    console.log('Promise resolved to:', typeof savedResult, savedResult ? 'with data' : 'null');
+                } catch (error) {
+                    console.error('Error resolving Promise in showSavedResult:', error);
+                    savedResult = null;
+                }
+            }
+            
+            // Guard against invalid or empty data
+            if (!savedResult) {
+                console.warn('showSavedResult: No saved result to show. Returning to start screen.');
+                localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                showStartScreen();
+                return; // Exit early to avoid further processing
+            }
+            
+            // Handle string results (HTML or route name)
+            if (typeof savedResult === 'string') {
+                console.log('Processing saved result as string');
+                try {
+                    // Check if it's HTML content (contains HTML tags)
+                    if (savedResult.includes('<') && savedResult.includes('>')) {
+                        console.log('Saved result appears to be HTML content');
+                        // Set the result content
+                        const resultBox = document.getElementById('result');
+                        if (resultBox) {
+                            // First make sure test-content is visible since it contains the result box
+                            const testContent = document.getElementById('test-content');
+                            if (testContent) {
+                                // Apply multiple styles to ensure visibility
+                                testContent.style.display = 'block';
+                                testContent.style.visibility = 'visible';
+                                testContent.style.opacity = '1';
+                                testContent.style.zIndex = '100'; // Ensure it's on top
+                                console.log('Made test-content container visible with high z-index');
+                            }
+                            
+                            // Hide other sections completely
+                            const chatBox = document.getElementById('chat-box');
+                            if (chatBox) {
+                                chatBox.style.display = 'none';
+                                chatBox.style.visibility = 'hidden';
+                            }
+                            
+                            // Make the close button visible
+                            const closeBtn = document.getElementById('result-close-btn');
+                            if (closeBtn) {
+                                closeBtn.style.display = 'block';
+                                closeBtn.style.visibility = 'visible';
+                                closeBtn.style.zIndex = '200'; // Make it accessible
+                            }
+                            
+                            // Display the saved result
+                            console.log('Setting result box innerHTML and making it visible');
+                            resultBox.innerHTML = '';
+                            resultBox.innerHTML = savedResult;
+                            
+                            // Force result box to be visible with !important and high z-index
+                            resultBox.setAttribute('style', 'display: block !important; position: relative; visibility: visible !important; z-index: 50 !important;');
+                            
+                            // Add a small delay to ensure the DOM has time to update properly
+                            setTimeout(() => {
+                                if (startScreen) startScreen.style.display = 'none';
+                                if (testContent) testContent.style.display = 'block';
+                                if (resultBox) resultBox.style.display = 'block';
+                            }, 100);
+                            
+                            return;
+                        }
+                    } else {
+                        // It's probably just a route name, show a simplified result
+                        console.log('Saved result appears to be a simple string:', savedResult);
+                        showResult(false, savedResult);
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error processing string result:', e);
+                }
+            }
+            
+            // If we reach here with an object, the old logic would apply
+            if (typeof savedResult !== 'object' || Array.isArray(savedResult) || Object.keys(savedResult).length === 0) {
+                console.warn('showSavedResult: Invalid result format. Returning to start screen.');
+                localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                showStartScreen();
+                return;
+            }
+            
+            // Helper function to show start screen
+            function showStartScreen() {
+                // Show start screen and hide other sections
+                const startScreen = document.getElementById('start-screen');
+                const testContent = document.getElementById('test-content');
+                const resultContent = document.getElementById('result-content');
+                const resultDiv = document.getElementById('result'); // Add this line to get the actual result div
+
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    startScreen.style.opacity = '1';
+                    startScreen.style.visibility = 'visible';
+                }
+                if (testContent) testContent.style.display = 'none';
+                if (resultContent) resultContent.style.display = 'none';
+                if (resultDiv) resultDiv.style.display = 'none'; // Ensure the result div is hidden
+
+                // Re-init start button
+                setupStartButton();
+            }
+
+            // ===== valid savedResult handling continues below =====
+            
+            // Extract result text and top routes from saved result
+            let resultText, topRoutes;
+            
+            if (typeof savedResult === 'string') {
+                // Handle case where savedResult is just a string (old format)
+                resultText = savedResult;
+                // Try to get top routes from scores if available
+                topRoutes = Object.entries(scores).sort((a, b) => b[1] - a[1])
+                    .slice(0, 2)
+                    .map(([route]) => ({ route }));
+            } else {
+                // Handle case where savedResult is an object with result and topRoutes
+                resultText = savedResult.result || '';
+                topRoutes = savedResult.topRoutes || [];
+            }
+            
+            // Function to create Coursera search URL
+            const createCourseraUrl = (query) => {
+                const baseUrl = 'https://www.coursera.org/search';
+                const params = new URLSearchParams({
+                    query: query,
+                    language: 'Spanish',
+                    sortBy: 'BEST_MATCH'
+                });
+                return `${baseUrl}?${params.toString()}`;
+            };
+            
+            // Hide chat box and show saved result with close button
+            if (chatBox) chatBox.style.display = 'none';
+            const closeBtn = document.getElementById('result-close-btn');
+            if (closeBtn) closeBtn.style.display = 'block';
+            
+            if (resultBox) {
+                resultBox.style.display = 'block';
+                resultBox.style.textAlign = 'center';
+                resultBox.style.padding = '20px';
+                resultBox.style.color = '#2c3e50';
+                resultBox.style.position = 'relative';
+                
+                // Create result content with proper font sizes and weights
+                let resultHTML = `
+                    <div style="margin: 0 auto 30px; max-width: 600px; font-size: 16px; line-height: 1.5; text-align: center;">
+                        <h3 style="color: #2c3e50; margin-bottom: 20px;">¡Tu resultado está listo!</h3>
+                        <div style="font-size: 24px; margin-bottom: 2px;">Tu ruta ideal es:</div>
+                        <div style="font-size: 28px; font-weight: bold; color: #2c3e50; margin-bottom: 30px;">
+                            ${topRoutes[0]?.route || 'No disponible'}
+                        </div>
+                `;
+                
+                // Add secondary route if available
+                if (topRoutes.length > 1) {
+                    resultHTML += `
+                        <div style="margin: 10px 0 5px;">
+                            <div style="margin-top: 12px;"><div class="normal-text" style="font-size: 18px; margin-bottom: 4px;">También podrías explorar:</div><div style="font-weight: bold; font-size: 20px;">${topRoutes[1]?.route || ''}</div></div>
+                        </div>
+                    `;
+                }
+                
+                resultHTML += `
+                    </div>
+                    <p style="display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto 30px;">
+                `;
+                
+                // Add buttons with custom text and links
+                resultHTML += `
+                    <a href="https://www.coursera.org/" target="_blank" rel="noopener noreferrer" 
+                       style="display: block; padding: 12px 20px; background-color: #0056D2; 
+                              color: white; text-decoration: none; border-radius: 5px;
+                              font-size: 16px; font-weight: normal; transition: background-color 0.3s; margin-bottom: 10px;">
+                        Si ya sos parte del programa y tenés tu licencia activa, ingresá a Coursera acá
+                    </a>
+                    <a href="https://vinculo.com.py/jovenes-conectados/#rutas-de-aprendizaje" target="_blank" rel="noopener noreferrer" 
+                       style="display: block; padding: 12px 20px; background-color: #0056D2; 
+                              color: white; text-decoration: none; border-radius: 5px;
+                              font-size: 16px; font-weight: normal; transition: background-color 0.3s;">
+                        Explorá las rutas de aprendizaje y los cursos incluidos en cada ruta antes de empezar
+                    </a>
+                </p>
+                `;
+                
+                resultHTML += `
+                    </div>
+                    <a id="restart-btn" href="jc_test_vocacional.html?restart=true&_t=${new Date().getTime()}" 
+                       style="display: inline-block; margin-top: 20px; padding: 10px 20px; 
+                              font-size: 16px; cursor: pointer; background-color: #808080; 
+                              color: white; text-decoration: none; border: none; border-radius: 5px; 
+                              transition: background-color 0.3s;" onclick="localStorage.clear(); sessionStorage.clear(); console.log('Storage cleared!');">
+                        Volver a tomar el test
+                    </a>
+                `;
+                
+                resultBox.innerHTML = resultHTML;
+                                // Completely reset the app when restart button is clicked
+                const restartBtn = document.getElementById('restart-btn');
+                if (restartBtn) {
+                    // Remove any existing listeners
+                    const newRestartBtn = restartBtn.cloneNode(true);
+                    restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
+                    
+                    // Use the restartTest function for consistent restart behavior
+                    newRestartBtn.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return restartTest();
+                    };
+                    
+                    console.log('Restart button ready');
+                }
+            }
+            
+            // Immediately remove ?restart and ?_t from the URL so reload does not trigger a reset
+            if (window.location.search.includes('restart') || window.location.search.includes('_t')) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+        }
+
+        /**
+         * Check for saved results and restore state
+         */
+        async function checkSavedResults() {
+            // Add a small delay to ensure everything is loaded
+            await new Promise(resolve => setTimeout(resolve, 500));
+            try {
+                console.log('🔍 DEBUG: checkSavedResults called');
+                console.log('🔍 DEBUG: localStorage keys present:', Object.keys(localStorage));
+                console.log('🔍 DEBUG: TEST_STATE exists?', Boolean(localStorage.getItem(STORAGE_KEYS.TEST_STATE)));
+                console.log('🔍 DEBUG: TEST_RESULT exists?', Boolean(localStorage.getItem(STORAGE_KEYS.TEST_RESULT)));
+                console.log('🔍 Checking for saved results...');
+                
+                // Check for restart flag in URL first
+                const urlParams = new URLSearchParams(window.location.search);
+                const restartFlag = urlParams.get('restart');
+                
+                // Clear any restart flags from URL immediately
+                if (restartFlag || urlParams.has('_t')) {
+                    console.log('🔄 Restart detected - cleaning up URL');
+                    const cleanUrl = new URL(window.location.href);
+                    cleanUrl.searchParams.delete('restart');
+                    cleanUrl.searchParams.delete('_t');
+                    window.history.replaceState({}, document.title, cleanUrl.toString());
+                }
+                
+                // If this is a restart, clear all state and show start screen
+                if (restartFlag === 'true') {
+                    console.log('🔄 Restart detected - clearing state and showing start screen');
+                    
+                    // Clear all state
+                    current = 0;
+                    scores = {};
+                    answerPattern = Array(questions.length).fill('');
+                    
+                    // Clear any saved results from storage (both localStorage and cookies)
+                    localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                    localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+                    
+                    // Also clear cookies
+                    deleteCookie('TEST_STATE');
+                    deleteCookie('TEST_RESULT');
+                    console.log('Cleared all test data from cookies and localStorage');
+                    
+                    // Update UI to show start screen
+                    console.log('Updating UI...');
+                    const startScreen = document.getElementById('start-screen');
+                    const testContent = document.getElementById('test-content');
+                    const resultContent = document.getElementById('result-content');
+                    
+                    if (startScreen) {
+                        startScreen.style.display = 'flex';
+                        startScreen.style.opacity = '1';
+                        startScreen.style.visibility = 'visible';
+                        console.log('Start screen shown');
+                    }
+
+                    // Remove restart parameter from URL so it doesn't persist into new test flow
+                    try {
+                        const currentUrl = new URL(window.location);
+                        if (currentUrl.searchParams.has('restart')) {
+                            currentUrl.searchParams.delete('restart');
+                            currentUrl.searchParams.delete('_t');
+                            window.history.replaceState({}, '', currentUrl.pathname + currentUrl.search);
+                            console.log('Removed restart parameter from URL after handling restart');
+                        }
+                    } catch (urlErr) {
+                        console.warn('Could not update URL to remove restart parameter:', urlErr);
+                    }
+                        startScreen.style.opacity = '1';
+                        startScreen.style.visibility = 'visible';
+                        console.log('Start screen shown');
+                    }
+                    
+                    if (testContent) {
+                        testContent.style.display = 'none';
+                        console.log('Test content hidden');
+                    }
+                    
+                    if (resultContent) {
+                        resultContent.style.display = 'none';
+                        console.log('Result content hidden');
+                    }
+                    
+                    // Reset any form elements
+                    const form = document.querySelector('form');
+                    if (form) {
+                        form.reset();
+                        console.log('Form reset');
+                    }
+                    
+                    // Clear any timers
+                    console.log('Clearing timers...');
+                    const highestTimeoutId = setTimeout(';');
+                    for (let i = 0; i < highestTimeoutId; i++) {
+                        clearTimeout(i);
+                        clearInterval(i);
+                    }
+                    
+                    // Force reflow to ensure UI updates
+                    if (document.body) {
+                        document.body.style.display = 'none';
+                        void document.body.offsetHeight; // Trigger reflow
+                        document.body.style.display = '';
+                    }
+                    
+                    // Add a small delay to ensure all cleanup is complete
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Reinitialize the start button
+                    console.log('Setting up start button...');
+                    setupStartButton();
+                    
+                    console.log('✅ Full reset complete, ready for new test');
+                    return false;
+                
+                // Check for saved results first (prioritize showing results if available)
+                console.log('Checking for saved results first...');
+                
+                if (localStorage.getItem(STORAGE_KEYS.TEST_RESULT)) {
+                    console.log('📊 Found saved result, attempting to display...');
+                    try {
+                        const savedResult = getSavedResult();
+                        if (savedResult) {
+                            await showSavedResult(savedResult);
+                            return true;
+                        } else {
+                            console.warn('⚠️ Invalid saved result, clearing...');
+                            localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                        }
+                    } catch (e) {
+                        console.error('❌ Error showing saved result:', e);
+                        localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+                    }
+                }
+                
+                // Then check for saved test state
+                console.log('Checking for saved test state...');
+                const savedTestState = localStorage.getItem(STORAGE_KEYS.TEST_STATE);
+                console.log('🔍 DEBUG: Raw saved test state:', savedTestState);
+                
+                if (savedTestState) {
+                    console.log('📝 Found saved test state, attempting to restore...');
+                    try {
+                        // Try to restore the test state
+                        console.log('🔍 DEBUG: Calling getTestState()');
+                        const restored = await getTestState();
+                        console.log('🔍 DEBUG: getTestState() returned:', restored);
+                        console.log('🔍 DEBUG: Current after restore:', current);
+                        console.log('🔍 DEBUG: Scores after restore:', scores);
+                        
+                        if (restored) {
+                            console.log('✅ Successfully restored test state, current question:', current);
+                            
+                            // Update UI to show test content
+                            const startScreen = document.getElementById('start-screen');
+                            const testContent = document.getElementById('test-content');
+                            const resultContent = document.getElementById('result-content');
+                            console.log('🔍 DEBUG: Elements exist?', {
+                                startScreen: !!startScreen,
+                                testContent: !!testContent,
+                                resultContent: !!resultContent
+                            });
+                            
+                            // Check if we've reached the end of the test
+                            console.log('🔍 DEBUG: current:', current, 'questions.length:', questions.length);
+                            if (current >= questions.length) {
+                                console.log('Test completed, showing results instead of question', current);
+                                showResult();
+                            } else {
+                                // Show the current question
+                                console.log('🔍 DEBUG: About to call showQuestion(true) for question', current);
+                                showQuestion(true);
+                                // Always update the progress bar to reflect the current question
+                                updateProgressBar();
+                                console.log('🔍 DEBUG: After showQuestion call');
+                            }
+                            
+                            // Ensure the progress bar is updated even if there's a delay in showing the question
+                            setTimeout(() => updateProgressBar(), 100);
+                            return true;
+                        } else {
+                            console.warn('⚠️ Failed to restore test state, clearing...');
+                            localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+                        }
+                    } catch (e) {
+                        console.error('❌ Error restoring test state:', e);
+                        localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+                    }
+                }
+                
+                console.log('ℹ️ No saved state found, showing start screen');
+                // If no saved state or result, ensure start screen is shown
+                const startScreen = document.getElementById('start-screen');
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    startScreen.style.opacity = '1';
+                    startScreen.style.visibility = 'visible';
+                }
+                
+                // Reinitialize the start button
+                setupStartButton();
+                
+            } catch (e) {
+                console.error('❌ Error in checkSavedResults:', e);
+                
+                // On error, ensure we still show the start screen
+                const startScreen = document.getElementById('start-screen');
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    startScreen.style.opacity = '1';
+                    startScreen.style.visibility = 'visible';
+                }
+                
+                // Try to set up the start button
+                try {
+                    setupStartButton();
+                } catch (buttonError) {
+                    console.error('❌ Failed to set up start button:', buttonError);
+                    // Last resort: reload the page
+                    window.location.href = window.location.pathname;
+                }
+            }
+            
+            return false;
+        }
+        
+        function hideLoader() {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                // Add fade-out class
+                loader.classList.add('fade-out');
+                
+                // Remove from DOM after animation completes
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 500);
+            }
+        }
+        
+        /**
+         * Set up the start button with robust event handling and error recovery
+         * @returns {boolean} True if setup was successful, false otherwise
+         */
+        // This function has been moved to the top of the script to avoid ReferenceError
+        function _setupStartButtonOld() {
+            console.log('🔘 SETUP START BUTTON - Starting initialization...');
+            
+            try {
+                // 1. Get DOM elements
+                const startButton = document.getElementById('start-button');
+                const startScreen = document.getElementById('start-screen');
+                const testContent = document.getElementById('test-content');
+                
+                // 2. Validate elements exist
+                if (!startButton || !startScreen || !testContent) {
+                    console.error('❌ CRITICAL: Required elements not found:', {
+                        startButton: !!startButton,
+                        startScreen: !!startScreen,
+                        testContent: !!testContent
+                    });
+                    return false;
+                }
+                
+                console.log('✅ Found all required elements');
+                
+                // 3. Create a new button to replace the existing one (removes old event listeners)
+                console.log('🔄 Creating fresh button instance...');
+                const newButton = startButton.cloneNode(true);
+                
+                // 4. Store reference to the parent node before replacing
+                const parentNode = startButton.parentNode;
+                if (!parentNode) {
+                    console.error('❌ CRITICAL: Could not find parent node for start button');
+                    return false;
+                }
+                
+                // 5. Define the click handler first so it's in scope for the event listener
+                const handleStart = (e) => {
+                    console.log('🚀 Start button clicked!');
+                    
+                    // Prevent default and stop propagation
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                    }
+                    
+                    try {
+                        // IMPORTANT: Always use the startTest function for consistent initialization
+                        console.log('🔍 Calling startTest() from click handler...');
+                        startTest(false);
+                        return true;
+                    } catch (error) {
+                        console.error('❌ Error in start button handler:', error);
+                        // Last resort: try to show the first question directly
+                        if (typeof showQuestion === 'function') {
+                            showQuestion();
+                        }
+                        return false;
+                    }
+                };
+                
+                // 6. Replace the button in the DOM
+                console.log('🔄 Replacing button in DOM...');
+                try {
+                    const newParent = parentNode.cloneNode(false);
+                    parentNode.parentNode.replaceChild(newParent, parentNode);
+                    newParent.appendChild(newButton);
+                    console.log('✅ Successfully replaced button in DOM');
+                } catch (replaceError) {
+                    console.error('❌ Error replacing button in DOM:', replaceError);
+                    // Fallback: Just use the existing button
+                    console.log('⚠️ Falling back to existing button');
+                    return false;
+                }
+                
+                // 7. Make the button visible and interactive
+                newButton.style.display = 'block';
+                newButton.style.visibility = 'visible';
+                newButton.style.opacity = '1';
+                newButton.disabled = false;
+                newButton.style.boxShadow = '0 0 10px rgba(46, 204, 113, 0.5)';
+                
+                // 8. Add event listeners
+                console.log('🎯 Adding event listeners to start button...');
+                
+                // Remove any existing event listeners first
+                newButton.removeEventListener('click', handleStart);
+                newButton.removeEventListener('touchstart', handleStart);
+                
+                // Add new event listeners with proper options
+                newButton.addEventListener('click', handleStart, { capture: true });
+                newButton.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    handleStart(e);
+                }, { passive: false, capture: true });
+                
+                // Also add as onclick for good measure
+                newButton.onclick = handleStart;
+                
+                console.log('✅ Start button setup completed successfully');
+                return true;
+                
+            } catch (error) {
+                console.error('❌ CRITICAL ERROR in setupStartButton:', error);
+                // Try to recover by reloading the page
+                setTimeout(() => window.location.reload(true), 1000);
+                return false;
+            }
+        }
+        
+        // Add normal text style
+        const normalTextStyle = document.createElement('style');
+        normalTextStyle.textContent = `
+            .normal-text {
+                font-weight: 400 !important;
+                font-style: normal !important;
+                text-transform: none !important;
+                letter-spacing: normal !important;
+                line-height: normal !important;
+            }
+        `;
+        document.head.appendChild(normalTextStyle);
+
+        // Add fade-out animation for loader
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; visibility: hidden; }
+            }
+            .fade-out {
+                animation: fadeOut 0.5s ease-out forwards;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async function() {
+    // DEBUG: Log what is in localStorage for TEST_RESULT on load
+    if (checkLocalStorage()) {
+        const debugSavedResult = localStorage.getItem(STORAGE_KEYS.TEST_RESULT);
+        console.log('[DEBUG] [DOMContentLoaded] TEST_RESULT in localStorage:', debugSavedResult && debugSavedResult.length ? debugSavedResult.slice(0, 120) + '...' : debugSavedResult);
+    }
+            console.log('🔍 DEBUG: DOMContentLoaded handler started');
+            
+            // Hide the result div by default regardless of other logic
+            const resultBox = document.getElementById('result');
+            if (resultBox) {
+                resultBox.style.display = 'none';
+            }
+            
+            // Only consider reload loop detection if there's no saved result
+            // This way we don't lose results when simply reloading the results page
+            const hasTestResult = checkLocalStorage() && localStorage.getItem(STORAGE_KEYS.TEST_RESULT);
+            const hasTestState = checkLocalStorage() && localStorage.getItem(STORAGE_KEYS.TEST_STATE);
+            
+            // Force clear localStorage if we detect a reload loop AND there's no saved result
+            if (!hasTestResult) {
+                const now = new Date().getTime();
+                const lastInit = localStorage.getItem('lastInitTime');
+                
+                if (lastInit && (now - parseInt(lastInit)) < 2000) {
+                    console.warn('⚠️ Detected potential reload loop! Clearing state (except results)...');
+                    // Only clear state that doesn't include test results
+                    if (checkLocalStorage()) {
+                        // Remove specific items except results
+                        for (const key in localStorage) {
+                            if (key !== STORAGE_KEYS.TEST_RESULT) {
+                                localStorage.removeItem(key);
+                            }
+                        }
+                    }
+                    sessionStorage.clear();
+                    
+                    // Remove URL parameters
+                    if (window.location.search) {
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                }
+            }
+            
+            // Record this initialization
+            localStorage.setItem('lastInitTime', new Date().getTime());
+            
+            // Check for saved result first before showing anything
+            console.log('🔍 DEBUG: Checking for saved result first');
+            if (hasTestResult) {
+                console.log('🔍 DEBUG: Found saved test result, showing it now');
+                const savedResult = await getSavedResult();
+                if (savedResult) {
+                    // Make sure all other UI elements are hidden before showing result
+                    const startScreen = document.getElementById('start-screen');
+                    if (startScreen) startScreen.style.display = 'none';
+                    showSavedResult(savedResult);
+                    return; // Exit early, everything is set up for showing the result
+                }
+            }
+            
+            // If no result to show, continue with normal flow
+            console.log('🔍 DEBUG: No saved result found, continuing with normal initialization');
+            const stateRestored = await checkSavedResults();
+            console.log('🔍 DEBUG: checkSavedResults returned:', stateRestored);
+            
+            // Only show start screen and set up start button if no state was restored
+            if (!stateRestored) {
+                console.log('🔍 DEBUG: No state restored, showing start screen');
+                const startScreen = document.getElementById('start-screen');
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    startScreen.style.opacity = '1';
+                    startScreen.style.visibility = 'visible';
+                }
+                
+                // Initialize the start button only if we're not resuming a test
+                setupStartButton();
+            }
+            // Hide loader after a delay to ensure everything is loaded
+            // Increased delay to keep loader visible longer
+            setTimeout(hideLoader, 2500); // 2.5 seconds
+        
+            // Fallback: Hide loader after 3 seconds if still visible
+            setTimeout(hideLoader, 3000);
+        });
+
+
+/**
+ * Restarts the test by clearing all state and navigating back to the start screen
+ * Clears localStorage and cookies for both test state and results
+ */
+function restartTest() {
+    // [DEBUG] restartTest called. Clearing all relevant storage and resetting UI.
+    console.log('[DEBUG] restartTest called.');
+    console.log('🔄 Restarting test...');
+    
+    // Clear all state variables
+    current = 0;
+    scores = {};
+    answerPattern = Array(questions.length).fill('');
+    // Clear localStorage
+    localStorage.removeItem(STORAGE_KEYS.TEST_RESULT);
+    localStorage.removeItem(STORAGE_KEYS.TEST_RESULT_TIMESTAMP);
+    localStorage.removeItem(STORAGE_KEYS.TEST_STATE);
+    // Clear backup variables
+    window._lastScores = undefined;
+    window._lastAnswerPattern = undefined;
+    // Clear cookies
+    deleteCookie('TEST_STATE');
+    deleteCookie('TEST_RESULT');
+    console.log('Cleared all test data from cookies and localStorage');
+    
+    // Update UI
+    const startScreen = document.getElementById('start-screen');
+    const testContent = document.getElementById('test-content');
+    const resultContent = document.getElementById('result-content');
+    
+    // Show the start screen and hide test/result UI
+    if (startScreen) {
+        startScreen.style.display = 'flex';
+        startScreen.style.opacity = '1';
+        startScreen.style.visibility = 'visible';
+    }
+    hideLoader();
+    if (testContent) {
+        testContent.style.display = 'none';
+    }
+    if (resultContent) {
+        resultContent.style.display = 'none';
+    }
+    // Optionally reset progress bar, question UI, and any error/info messages
+    const progressBar = document.getElementById('progress-bar');
+    if (progressBar) progressBar.style.width = '0%';
+    const questionBox = document.getElementById('question-box');
+    if (questionBox) questionBox.innerHTML = '';
+    const infoMsg = document.getElementById('info-message');
+    if (infoMsg) infoMsg.textContent = '';
+    // Focus start button for accessibility
+    const startBtn = document.getElementById('start-btn');
+    if (startBtn) startBtn.focus();
+    // No page reload needed; restart is now seamless.
+}
+
+// Fallback: hide loader after 2 seconds
+setTimeout(function() {
+    const loader = document.getElementById('loader');
+    if (loader) {
+        loader.style.display = 'none';
+    }
+}, 2000);
+
+// Returns the top N routes from the scores object, sorted by score descending
+function getTopRoutes(count = 1) {
+    if (!scores || typeof scores !== 'object') return [];
+    return Object.entries(scores)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, count)
+        .map(([route, score]) => ({ route, score }));
+}
+}
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+});
+</script>
+<!-- Analytics Module -->
+<script type="module" src="assets/js/analytics.js"></script>
+
+<script type="module">
+// Import analytics functions
+let trackTestStart, trackTestProgress, trackTestCompletion;
+
+// Dynamically import analytics functions
+import('./assets/js/analytics.js')
+    .then(module => {
+        trackTestStart = module.trackTestStart;
+        trackTestProgress = module.trackTestProgress;
+        trackTestCompletion = module.trackTestCompletion;
+    })
+    .catch(err => console.error('Failed to load analytics module:', err));
+
+import { saveSessionToDb, loadSessionFromDb } from './assets/js/db_sessions.js';
+
+// Utility: Generate or retrieve a unique session ID for this user/test
+function getSessionId() {
+    let sid = localStorage.getItem('SESSION_ID');
+    if (!sid) {
+        sid = 'jc_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        localStorage.setItem('SESSION_ID', sid);
+    }
+    return sid;
+}
+
+// --- PATCH saveTestState for dual-write (localStorage + DB) ---
+const _orig_saveTestState = saveTestState;
+saveTestState = function() {
+    const result = _orig_saveTestState.apply(this, arguments);
+    try {
+        const state = {
+            current,
+            answerPattern,
+            scores,
+            timestamp: Date.now()
+        };
+        const sid = getSessionId();
+        saveSessionToDb(sid, state).then(success => {
+            if (!success) {
+                console.warn('Session NOT saved to DB, fallback to localStorage only');
+            }
+        });
+    } catch (e) {
+        console.warn('DB session save failed:', e);
+    }
+    return result;
+};
+
+// --- PATCH getTestState for DB-first fallback ---
+const _orig_getTestState = getTestState;
+getTestState = async function() {
+    try {
+        const sid = getSessionId();
+        const dbState = await loadSessionFromDb(sid);
+        if (dbState && typeof dbState.current === 'number' && Array.isArray(dbState.answerPattern)) {
+            current = dbState.current;
+            answerPattern = dbState.answerPattern;
+            scores = dbState.scores || {};
+            console.log('Test state restored from DB session:', dbState);
+            return true;
+        }
+    } catch (e) {
+        console.warn('DB session load failed, fallback to localStorage:', e);
+    }
+    // fallback to original localStorage/cookie logic
+    return _orig_getTestState.apply(this, arguments);
+};
+</script>
+</body>
+</html>
