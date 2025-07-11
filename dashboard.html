@@ -439,29 +439,48 @@
                 return;
             }
             
-            console.log('Updating dashboard with', testHistory.length, 'test results');
-            console.log('Sample test data:', testHistory[0]);
-            console.log('Questions array available:', questions.length, 'questions');
+            console.log('Updating dashboard with', testHistory.length, 'raw test results');
             
-            // Process all tests (not just by session) since we want to show all attempts
-            const allTests = testHistory.map(test => ({
-                ...test,
-                // Ensure answers is always an array
-                answers: Array.isArray(test.answers) ? test.answers : 
-                        (typeof test.answers === 'string' ? 
-                         (test.answers.startsWith('[') ? JSON.parse(test.answers) : test.answers.split(',').map(a => a.trim())) : 
-                         [])
-            }));
+            // Group tests by session_id to avoid counting progress snapshots
+            const sessionGroups = {};
+            testHistory.forEach(test => {
+                const sessionId = test.session_id;
+                if (!sessionGroups[sessionId]) {
+                    sessionGroups[sessionId] = [];
+                }
+                sessionGroups[sessionId].push(test);
+            });
             
-            // Count all tests with at least one answer
-            const totalTests = allTests.filter(test => 
-                test.answers && test.answers.length > 0
-            ).length;
+            // Get the most complete test for each session (highest answer count)
+            const uniqueTests = Object.values(sessionGroups).map(sessionTests => {
+                return sessionTests.reduce((mostComplete, current) => {
+                    const currentAnswers = Array.isArray(current.answers) ? current.answers : 
+                            (typeof current.answers === 'string' ? 
+                             (current.answers.startsWith('[') ? JSON.parse(current.answers) : current.answers.split(',').map(a => a.trim())) : 
+                             []);
+                    const mostCompleteAnswers = Array.isArray(mostComplete.answers) ? mostComplete.answers : 
+                            (typeof mostComplete.answers === 'string' ? 
+                             (mostComplete.answers.startsWith('[') ? JSON.parse(mostComplete.answers) : mostComplete.answers.split(',').map(a => a.trim())) : 
+                             []);
+                    
+                    const currentCount = currentAnswers.filter(a => a && a !== '').length;
+                    const mostCompleteCount = mostCompleteAnswers.filter(a => a && a !== '').length;
+                    
+                    return currentCount > mostCompleteCount ? 
+                        { ...current, answers: currentAnswers } : 
+                        { ...mostComplete, answers: mostCompleteAnswers };
+                });
+            });
+            
+            console.log('Unique tests after grouping by session_id:', uniqueTests.length);
+            console.log('Sample unique test:', uniqueTests[0]);
             
             // Count tests with at least 10 answers as "completed"
-            const completedTests = allTests.filter(test => 
+            const completedTests = uniqueTests.filter(test => 
                 test.answers && test.answers.filter(a => a && a !== '').length >= 10
             ).length;
+            
+            console.log('Completed tests count:', completedTests);
             
             // Update the counters
             document.getElementById('total-tests').textContent = completedTests;
@@ -474,13 +493,13 @@
             oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
             oneWeekAgo.setHours(0, 0, 0, 0);
             
-            // Filter tests by date
-            const todayTests = allTests.filter(test => {
+            // Filter unique tests by date
+            const todayTests = uniqueTests.filter(test => {
                 const testDate = new Date(test.created_at || test.date);
                 return testDate >= today && test.answers && test.answers.filter(a => a && a !== '').length >= 10;
             }).length;
             
-            const weekTests = allTests.filter(test => {
+            const weekTests = uniqueTests.filter(test => {
                 const testDate = new Date(test.created_at || test.date);
                 return testDate >= oneWeekAgo && test.answers && test.answers.filter(a => a && a !== '').length >= 10;
             }).length;
@@ -489,7 +508,7 @@
             document.getElementById('week-tests').textContent = weekTests;
             
             // Find most recent completed test
-            const recentCompleted = [...allTests]
+            const recentCompleted = [...uniqueTests]
                 .filter(test => test.answers && test.answers.filter(a => a && a !== '').length >= 10)
                 .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))[0];
             
@@ -502,17 +521,17 @@
             }
             
             console.log('Dashboard stats:', {
-                totalTests,
+                totalUniqueTests: uniqueTests.length,
                 completedTests,
                 todayTests,
                 weekTests,
                 recentTest: recentCompleted ? (recentCompleted.topRoutes?.[0] || getTopRoute(recentCompleted.answers)) : null
             });
             
-            // Update charts and table with all tests for display
-            updateRoutesChart(allTests);
-            updateActivityChart(allTests);
-            updateRecentTestsTable(allTests);
+            // Update charts and table with unique tests for display
+            updateRoutesChart(uniqueTests);
+            updateActivityChart(uniqueTests);
+            updateRecentTestsTable(uniqueTests);
         }
 
         // Update routes chart
