@@ -469,13 +469,27 @@
             
             document.getElementById('total-tests').textContent = completedTestCount;
             
-            if (testHistory.length > 0) {
-                const latestTest = testHistory[0];
-                document.getElementById('recent-test').textContent = 
-                    latestTest.result || (latestTest.topRoutes && latestTest.topRoutes.length > 0 ? latestTest.topRoutes[0] : '-');
+            // Display the most recent completed test
+            if (completedSessions.length > 0) {
+                // Sort completed sessions by date (newest first)
+                completedSessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                const latestTest = completedSessions[0];
+                
+                // Format the result nicely
+                let resultText = '-';
+                if (latestTest.result) {
+                    resultText = latestTest.result;
+                } else if (latestTest.topRoutes && latestTest.topRoutes.length > 0) {
+                    // Show top route with score if available
+                    const topRoute = latestTest.topRoutes[0];
+                    const score = latestTest.state && latestTest.state.scores ? latestTest.state.scores[topRoute] : null;
+                    resultText = score ? `${topRoute}: ${score}` : topRoute;
+                }
+                
+                document.getElementById('recent-test').textContent = resultText;
             }
             
-            // Count tests from today and this week
+            // Count completed tests from today and this week using the same completion criteria
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
@@ -483,12 +497,28 @@
             oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
             oneWeekAgo.setHours(0, 0, 0, 0);
             
-            const todayTests = testHistory.filter(test => {
+            // Get completed tests by session ID
+            const completedSessions = Object.values(sessionGroups)
+                .map(sessions => {
+                    // Get the most complete test for each session
+                    sessions.sort((a, b) => {
+                        const aAnswers = Array.isArray(a.answers) ? a.answers.filter(ans => ans !== '').length : 0;
+                        const bAnswers = Array.isArray(b.answers) ? b.answers.filter(ans => ans !== '').length : 0;
+                        return bAnswers - aAnswers;
+                    });
+                    return sessions[0]; // Most complete test for this session
+                })
+                .filter(test => test && test.answers && 
+                    Array.isArray(test.answers) && 
+                    test.answers.filter(ans => ans !== '').length >= 10);
+            
+            // Now filter completed sessions by date
+            const todayTests = completedSessions.filter(test => {
                 const testDate = new Date(test.date);
                 return testDate >= today;
             }).length;
             
-            const weekTests = testHistory.filter(test => {
+            const weekTests = completedSessions.filter(test => {
                 const testDate = new Date(test.date);
                 return testDate >= oneWeekAgo;
             }).length;
